@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ChevronRight, ChevronDown, PlayCircle, CheckCircle2, MessageSquare, Award, BookOpen, Lock, Reply as ReplyIcon, ClipboardList, Edit3, Save, Trash2, PlusCircle, TrendingUp, Sparkles } from 'lucide-react';
+import { ChevronRight, ChevronDown, PlayCircle, CheckCircle2, MessageSquare, Award, Lock, ClipboardList, Edit3, Save, Trash2, PlusCircle, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDiscussionStore } from '../store/discussionStore';
 import { useCourseStore } from '../store/courseStore';
@@ -9,15 +9,14 @@ import { API_BASE } from '../lib/api';
 export default function ChapterView() {
   const { courseId, chapterId } = useParams();
   const { user } = useAuthStore();
-  const { discussions, addDiscussion, addReply } = useDiscussionStore();
+  const { discussions, addDiscussion } = useDiscussionStore();
   const { courses, markTopicDone, updateChapter, updateTopic, createTopic, deleteTopic, generateChapterSummary } = useCourseStore();
   
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
   const [isDiscussionModalOpen, setIsDiscussionModalOpen] = useState(false);
   const [newDiscTitle, setNewDiscTitle] = useState('');
   const [newDiscContent, setNewDiscContent] = useState('');
-  const [expandedDiscussionId, setExpandedDiscussionId] = useState<string | null>(null);
-  const [replyContent, setReplyContent] = useState('');
+
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
 
   // Editing states
@@ -113,17 +112,7 @@ export default function ChapterView() {
     setSelectedTopicId(null);
   };
 
-  const handleCreateReply = (e: React.FormEvent, discussionId: string) => {
-    e.preventDefault();
-    if (!user || !replyContent.trim()) return;
-    addReply(discussionId, {
-      author: user.name,
-      authorId: user.id || 'u999',
-      text: replyContent,
-      role: user.role,
-    });
-    setReplyContent('');
-  };
+
 
   const handleOpenQuizManager = async (type: 'topic' | 'chapter', id: string) => {
     let url = `${API_BASE}/api/quizzes/${type}/${id}`;
@@ -177,9 +166,7 @@ export default function ChapterView() {
     setExpandedTopic(expandedTopic === topicId ? null : topicId);
   };
 
-  const toggleDiscussion = (id: string) => {
-    setExpandedDiscussionId(expandedDiscussionId === id ? null : id);
-  };
+
 
   const allTopicsCompleted = chapter.topics.every(t => t.completed);
 
@@ -385,17 +372,13 @@ export default function ChapterView() {
                         </button>
                       )}
                       
-                      <button 
-                        onClick={() => {
-                          setSelectedTopicId(topic.id);
-                          setNewDiscTitle(`Question about: ${topic.title}`);
-                          setIsDiscussionModalOpen(true);
-                        }}
+                      <Link 
+                        to={`/courses/${course.id}?tab=discussions`}
                         className="flex items-center bg-gray-50 text-gray-700 border border-gray-200 font-bold py-2.5 px-6 rounded-xl hover:bg-gray-100 shadow-sm transition-all"
                       >
                         <MessageSquare className="w-5 h-5 mr-2 text-blue-500" />
-                        Ask Question
-                      </button>
+                        Discuss Topic
+                      </Link>
                       
                       {!topic.completed && (
                         <div className="flex-1"></div>
@@ -465,106 +448,62 @@ export default function ChapterView() {
         </div>
       </div>
 
-      {/* Chapter specific discussions with inline replies */}
+      {/* Chapter specific discussions */}
       <div className="mt-8">
         <div className="flex items-center justify-between mb-4 px-1">
-          <h2 className="text-xl font-bold text-gray-900">Chapter Questions</h2>
+          <h2 className="text-xl font-bold text-gray-900">Chapter Discussions</h2>
           <button 
             onClick={() => setIsDiscussionModalOpen(true)}
             className="text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-xl transition-colors shadow-sm"
           >
-            Ask a Question
+            New Discussion
           </button>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3">
            {chapterDiscussions.length > 0 ? (
-              chapterDiscussions.map(disc => {
-                const isExpanded = expandedDiscussionId === disc.id;
-                return (
-                  <div key={disc.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:border-blue-200 transition-colors">
-                    <div 
-                      className={`p-5 cursor-pointer ${isExpanded ? 'bg-gray-50/50' : ''}`}
-                      onClick={() => toggleDiscussion(disc.id)}
-                    >
-                      <div className="flex items-start">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center font-bold text-sm text-blue-700 mr-4 mt-1 shrink-0">
-                          {disc.author.charAt(0)}
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-bold text-gray-900 text-base">{disc.title}</h4>
-                          <p className={`text-sm text-gray-600 mt-1 mb-2 ${isExpanded ? '' : 'line-clamp-2'}`}>{disc.content}</p>
-                          <div className="flex items-center space-x-4 text-xs font-bold text-gray-400">
-                            <span className="flex items-center bg-gray-50 px-2 py-1 rounded-md">
-                              <MessageSquare className="w-3.5 h-3.5 mr-1" /> {disc.replies} Replies
-                            </span>
-                            <span>•</span>
-                            <span className="font-medium text-gray-500">{disc.author}</span>
-                            <span>•</span>
-                            <span className="font-medium text-gray-500">{disc.date}</span>
+              chapterDiscussions.map(disc => (
+                <Link
+                  key={disc.id}
+                  to={`/courses/${course.id}/discussions/${disc.id}`}
+                  className="block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:border-blue-200 hover:shadow-md transition-all group"
+                >
+                  <div className="flex">
+                    <div className="flex flex-col items-center justify-center py-4 px-4 bg-gray-50/70 border-r border-gray-100 rounded-l-2xl gap-0.5 min-w-[52px]">
+                      <ChevronDown className="w-3.5 h-3.5 text-gray-400 rotate-180" />
+                      <span className={`text-sm font-black ${(disc.upvotes || 0) > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+                        {disc.upvotes || 0}
+                      </span>
+                    </div>
+                    <div className="flex-1 p-5 min-w-0">
+                      {disc.topicId && (
+                        <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1 block">
+                          {chapter.topics.find(t => t.id === disc.topicId)?.title || 'Topic'}
+                        </span>
+                      )}
+                      <h4 className="font-bold text-gray-900 text-base group-hover:text-blue-600 transition-colors truncate">{disc.title}</h4>
+                      <p className="text-sm text-gray-500 mt-1 mb-2 line-clamp-2">{disc.content}</p>
+                      <div className="flex items-center gap-4 text-xs text-gray-400 font-bold">
+                        <span className="flex items-center gap-1.5">
+                          <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[9px] font-bold">
+                            {disc.author.charAt(0)}
                           </div>
-                        </div>
-                        <div className="ml-3 p-2 text-gray-400 rounded-lg">
-                          <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180 text-blue-600' : ''}`} />
-                        </div>
+                          {disc.author}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          {disc.replies}
+                        </span>
+                        <span>{disc.date}</span>
                       </div>
                     </div>
-
-                    {/* Inline replies */}
-                    {isExpanded && (
-                      <div className="border-t border-gray-100 bg-gray-50/30">
-                        <div className="p-5 pt-3 space-y-4">
-                          <div className="space-y-3 ml-10 border-l-2 border-gray-100 pl-5 py-2">
-                            {disc.replyList && disc.replyList.length > 0 ? (
-                              disc.replyList.map(reply => (
-                                <div key={reply.id} className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm relative">
-                                  <div className="absolute -left-[26px] top-4 w-3 h-3 rounded-full bg-gray-200 border-2 border-gray-50"></div>
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center space-x-2">
-                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                                        reply.role === 'professor' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-700'
-                                      }`}>
-                                        {reply.role === 'professor' ? <BookOpen className="w-3 h-3" /> : reply.author.charAt(0)}
-                                      </div>
-                                      <span className="text-sm font-bold text-gray-900">{reply.author}</span>
-                                      {reply.role === 'professor' && (
-                                        <span className="bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-indigo-100">Professor</span>
-                                      )}
-                                    </div>
-                                    <span className="text-xs text-gray-400 font-medium">{reply.date}</span>
-                                  </div>
-                                  <p className="text-sm text-gray-600 leading-relaxed ml-8">{reply.text}</p>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="text-sm text-gray-500 font-medium italic">No replies yet. Be the first!</div>
-                            )}
-                          </div>
-
-                          {/* Reply form */}
-                          <form onSubmit={(e) => handleCreateReply(e, disc.id)} className="ml-10 relative">
-                            <textarea 
-                              value={replyContent}
-                              onChange={(e) => setReplyContent(e.target.value)}
-                              placeholder="Write a reply..."
-                              className="w-full bg-white border border-gray-200 rounded-xl pl-4 pr-14 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm resize-none h-16"
-                            ></textarea>
-                            <button 
-                              type="submit"
-                              disabled={!replyContent.trim()}
-                              className="absolute right-2 bottom-2 p-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
-                            >
-                              <ReplyIcon className="w-4 h-4" />
-                            </button>
-                          </form>
-                        </div>
-                      </div>
-                    )}
                   </div>
-                );
-              })
+                </Link>
+              ))
            ) : (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center py-8 text-gray-500 font-medium">
-                 No questions yet. Be the first to start a discussion!
+              <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 p-8 text-center">
+                <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-gray-500 font-bold">No discussions yet</p>
+                <p className="text-gray-400 text-sm mt-1">Start one to get the conversation going!</p>
               </div>
            )}
         </div>

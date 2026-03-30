@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, BookOpen, User as UserIcon, LogOut, Calendar } from "lucide-react";
+import { LayoutDashboard, BookOpen, User as UserIcon, LogOut, Calendar, PlusCircle } from "lucide-react";
 
 import { useAuthStore } from "../../store/authStore";
 import { useCourseStore } from "../../store/courseStore";
@@ -20,7 +20,7 @@ export default function MainLayout() {
     if (!user) return;
 
     fetchCourses();
-    fetchDiscussions();
+    fetchDiscussions(user.id);
   }, [user, fetchCourses, fetchDiscussions]);
 
   // Navigation items
@@ -37,6 +37,11 @@ export default function MainLayout() {
         to: "/admin",
         icon: BookOpen,
         label: "Admin Panel",
+      });
+      items.push({
+        to: "/courses/create",
+        icon: PlusCircle,
+        label: "Create Course",
       });
     }
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { type Course } from '../data/mockData';
+import { type Course } from '../types';
 import { API_BASE } from '../lib/api';
 import { useAuthStore } from './authStore';
 
@@ -7,8 +7,8 @@ interface CourseState {
   courses: Course[];
   fetchCourses: () => Promise<void>;
   markTopicDone: (courseId: string, chapterId: string, topicId: string) => Promise<void>;
-  createCourse: (title: string, description: string, professorId: string) => Promise<void>;
-  updateCourse: (courseId: string, data: { title?: string; description?: string }) => Promise<void>;
+  createCourse: (data: { title: string; description: string; category?: string; image?: string; is_open?: boolean }, professorId: string) => Promise<void>;
+  updateCourse: (courseId: string, data: { title?: string; description?: string; category?: string; image?: string; is_open?: boolean }) => Promise<void>;
   deleteCourse: (courseId: string) => Promise<void>;
   createChapter: (courseId: string, title: string, summary: string) => Promise<void>;
   updateChapter: (chapterId: string, data: { title?: string; summary?: string }) => Promise<void>;
@@ -63,15 +63,15 @@ export const useCourseStore = create<CourseState>((set) => ({
     }
   },
 
-  createCourse: async (title, description, professorId) => {
+  createCourse: async (data, professorId) => {
     try {
       const response = await fetch(`${API_BASE}/api/courses?professor_id=${professorId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description })
+        body: JSON.stringify(data)
       });
-      const data = await response.json();
-      set((state) => ({ courses: [...state.courses, data] }));
+      const createdCourse = await response.json();
+      set((state) => ({ courses: [...state.courses, createdCourse] }));
     } catch (error) {
       console.error("Failed to create course:", error);
     }

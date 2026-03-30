@@ -26,7 +26,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   fetchNotifications: async (userId) => {
     set({ loading: true });
     try {
-      const response = await fetch(`${API_BASE}/notifications/?user_id=${userId}`);
+      const response = await fetch(`${API_BASE}/api/notifications/?user_id=${userId}`);
       if (response.ok) {
         const data = await response.json();
         set({ notifications: data });
@@ -37,7 +37,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
   markAsRead: async (notificationId) => {
     try {
-      const response = await fetch(`${API_BASE}/notifications/${notificationId}/read`, {
+      const response = await fetch(`${API_BASE}/api/notifications/${notificationId}/read`, {
         method: 'PUT',
       });
       if (response.ok) {
@@ -65,12 +65,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     
     // Try to hit individual endpoints (silent)
     unreadIds.forEach(id => {
-      fetch(`${API_BASE}/notifications/${id}/read`, { method: 'PUT' });
+      fetch(`${API_BASE}/api/notifications/${id}/read`, { method: 'PUT' });
     });
   },
   deleteNotification: async (notificationId) => {
     try {
-      const response = await fetch(`${API_BASE}/notifications/${notificationId}`, {
+      const response = await fetch(`${API_BASE}/api/notifications/${notificationId}`, {
         method: 'DELETE',
       });
       if (response.ok) {

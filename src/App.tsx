@@ -4,12 +4,14 @@ import Dashboard from './pages/Dashboard';
 import Courses from './pages/Courses';
 import CourseView from './pages/CourseView';
 import ChapterView from './pages/ChapterView';
+import DiscussionThread from './pages/DiscussionThread';
 import Profile from './pages/Profile';
 import ProfessorAdmin from './pages/ProfessorAdmin';
 import Quiz from './pages/Quiz';
 import AIAnalysis from './pages/AIAnalysis';
 import Meetings from './pages/Meetings';
 import Notifications from './pages/Notifications';
+import CreateCourse from './pages/CreateCourse';
 
 function App() {
   return (
@@ -18,7 +20,9 @@ function App() {
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="courses" element={<Courses />} />
+          <Route path="courses/create" element={<CreateCourse />} />
           <Route path="courses/:courseId" element={<CourseView />} />
+          <Route path="courses/:courseId/discussions/:discussionId" element={<DiscussionThread />} />
           <Route path="courses/:courseId/chapters/:chapterId" element={<ChapterView />} />
           <Route path="courses/:courseId/chapters/:chapterId/quiz" element={<Quiz />} />
           <Route path="courses/:courseId/chapters/:chapterId/topics/:topicId/quiz" element={<Quiz />} />

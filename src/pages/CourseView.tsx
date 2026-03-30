@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { BookOpen, FileText, MessageSquare, Trophy, ChevronRight, Download, CheckCircle2, ClipboardList, Star, Users, Search, UserMinus, Mail, Award, TrendingUp, X, Video, ExternalLink, Sparkles } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { BookOpen, FileText, MessageSquare, Trophy, ChevronRight, ChevronUp, Download, CheckCircle2, ClipboardList, Users, Search, UserMinus, Mail, Award, TrendingUp, X, Video, ExternalLink, Sparkles, Settings, Trash2, ToggleLeft, ToggleRight, Check, Clock } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDiscussionStore } from '../store/discussionStore';
 import { useCourseStore } from '../store/courseStore';
 import { API_BASE } from '../lib/api';
+import { useDebounce } from '../hooks/useDebounce';
 
 type Tab = 'chapters' | 'materials' | 'discussions' | 'leaderboard' | 'quizzes' | 'students' | 'ai-insights';
 
@@ -24,13 +25,11 @@ type EnrolledStudent = {
 export default function CourseView() {
   const { courseId } = useParams();
   const { user } = useAuthStore();
-  const { discussions, addDiscussion, awardPoints } = useDiscussionStore();
+  const { discussions, addDiscussion } = useDiscussionStore();
   const { courses, createChapter } = useCourseStore();
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [showAddChapter, setShowAddChapter] = useState(false);
-  const [awardingDiscId, setAwardingDiscId] = useState<string | null>(null);
-  const [awardUserId, setAwardUserId] = useState('');
-  const [awardPts, setAwardPts] = useState(5);
+
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
   const [newMaterialName, setNewMaterialName] = useState('');
   const [newMaterialUrl, setNewMaterialUrl] = useState('');
@@ -50,11 +49,26 @@ export default function CourseView() {
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [studentsError, setStudentsError] = useState<string | null>(null);
   const [studentSearch, setStudentSearch] = useState('');
+  const debouncedStudentSearch = useDebounce(studentSearch, 300);
+  const [enrollStudentId, setEnrollStudentId] = useState('');
+  const [enrolling, setEnrolling] = useState(false);
   const [unenrollConfirm, setUnenrollConfirm] = useState<string | null>(null);
   const [unenrolling, setUnenrolling] = useState(false);
 
-  const [expandedDiscussionId, setExpandedDiscussionId] = useState<string | null>(null);
-  const [replyContent, setReplyContent] = useState('');
+
+
+  // Pagination States
+  const [leaderboardPage, setLeaderboardPage] = useState(1);
+  const [studentsPage, setStudentsPage] = useState(1);
+  const [discussionsPage, setDiscussionsPage] = useState(1);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  
+  // Edit course state
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editImage, setEditImage] = useState('');
 
   const course = courses.find(c => c.id === courseId) || courses[0];
   const courseDiscussions = discussions.filter(d => d.courseId === (course?.id));
@@ -75,26 +89,33 @@ export default function CourseView() {
       .catch(console.error);
   }, [course?.id]);
 
-  // Fetch students when Students tab is opened (professor only)
+  // Fetch students and pending requests when Students tab is opened (professor only)
   useEffect(() => {
     if (activeTab !== 'students' || !course || user?.role !== 'professor') return;
     setStudentsLoading(true);
     setStudentsError(null);
+    
+    // Fetch Enrolled Students
     fetch(`${API_BASE}/api/courses/${course.id}/students`)
-      .then(r => {
-        if (!r.ok) throw new Error('Failed to fetch students');
-        return r.json();
-      })
-      .then((data: EnrolledStudent[]) => {
-        setStudents(data);
-        setStudentsLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setStudentsError('Could not load students. Please try again.');
-        setStudentsLoading(false);
-      });
+      .then(r => r.json())
+      .then(setStudents)
+      .catch(console.error);
+
+    // Fetch Pending Requests
+    fetch(`${API_BASE}/api/courses/${course.id}/enrollment-requests`)
+      .then(r => r.json())
+      .then(setPendingRequests)
+      .finally(() => setStudentsLoading(false));
   }, [activeTab, course?.id, user?.role]);
+
+  useEffect(() => {
+    if (course) {
+      setEditTitle(course.title);
+      setEditDesc(course.description);
+      setEditCategory(course.category || 'Computer Science');
+      setEditImage(course.image || '');
+    }
+  }, [course]);
 
   const { fetchAIReport } = useCourseStore();
 
@@ -122,24 +143,85 @@ export default function CourseView() {
     }
   };
 
+  const handleEnrollStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!course || !enrollStudentId.trim()) return;
+    setEnrolling(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/courses/${course.id}/enroll-student`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: enrollStudentId })
+      });
+      if (res.ok) {
+        setEnrollStudentId('');
+        const refreshed = await fetch(`${API_BASE}/api/courses/${course.id}/students`).then(r => r.json());
+        setStudents(refreshed);
+      } else {
+        alert('Failed to enroll student. Please check the user ID.');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEnrolling(false);
+    }
+  };
+
+  const handleApproveRequest = async (requestId: string) => {
+    await fetch(`${API_BASE}/api/enrollments/${requestId}/approve`, { method: 'POST' });
+    setPendingRequests(prev => prev.filter(r => r.id !== requestId));
+    const refreshed = await fetch(`${API_BASE}/api/courses/${course?.id}/students`).then(r => r.json());
+    setStudents(refreshed);
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    await fetch(`${API_BASE}/api/enrollments/${requestId}`, { method: 'DELETE' });
+    setPendingRequests(prev => prev.filter(r => r.id !== requestId));
+  };
+
+  const { updateCourse, deleteCourse } = useCourseStore();
+  const navigate = useNavigate();
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!course) return;
+    await updateCourse(course.id, {
+      title: editTitle,
+      description: editDesc,
+      category: editCategory,
+      image: editImage || undefined
+    });
+    setIsSettingsOpen(false);
+  };
+
+  const handleDeleteCourse = async () => {
+    if (!course) return;
+    if (window.confirm('CRITICAL: Are you sure you want to delete this course? This will remove all materials, chapters, and student progress forever.')) {
+      await deleteCourse(course.id);
+      navigate('/courses');
+    }
+  };
+
+  const toggleEnrollment = async () => {
+    if (!course) return;
+    await updateCourse(course.id, { is_open: !course.is_open });
+  };
+
   const filteredStudents = students.filter(s =>
-    s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
-    s.email.toLowerCase().includes(studentSearch.toLowerCase())
+    s.name.toLowerCase().includes(debouncedStudentSearch.toLowerCase()) ||
+    s.email.toLowerCase().includes(debouncedStudentSearch.toLowerCase())
   );
+
+  const ITEMS_PER_PAGE = 10;
+  const pagedLeaderboard = leaderboard.slice((leaderboardPage - 1) * ITEMS_PER_PAGE, leaderboardPage * ITEMS_PER_PAGE);
+  const pagedStudents = filteredStudents.slice((studentsPage - 1) * ITEMS_PER_PAGE, studentsPage * ITEMS_PER_PAGE);
+  const pagedDiscussions = courseDiscussions.slice(0, discussionsPage * ITEMS_PER_PAGE);
 
   const handleAddChapter = async () => {
     if (!newChapterTitle.trim() || !course) return;
     await createChapter(course.id, newChapterTitle, '');
     setNewChapterTitle('');
     setShowAddChapter(false);
-  };
-
-  const handleAwardPoints = async (discId: string) => {
-    if (!awardUserId) return;
-    await awardPoints(discId, awardUserId, awardPts);
-    setAwardingDiscId(null);
-    setAwardUserId('');
-    setAwardPts(5);
   };
 
   const handleCreateDiscussion = (e: React.FormEvent) => {
@@ -157,24 +239,6 @@ export default function CourseView() {
     setIsDiscussionModalOpen(false);
     setNewDiscTitle('');
     setNewDiscContent('');
-  };
-
-  const { addReply } = useDiscussionStore();
-
-  const toggleDiscussion = (id: string) => {
-    setExpandedDiscussionId(expandedDiscussionId === id ? null : id);
-  };
-
-  const handleCreateReply = (e: React.FormEvent, discussionId: string) => {
-    e.preventDefault();
-    if (!user || !replyContent.trim()) return;
-    addReply(discussionId, {
-      author: user.name,
-      authorId: user.id || 'u999',
-      text: replyContent,
-      role: user.role,
-    });
-    setReplyContent('');
   };
 
   const { addMaterial, removeMaterial } = useCourseStore();
@@ -230,21 +294,47 @@ export default function CourseView() {
       <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm relative overflow-hidden group hover:border-blue-200 transition-colors">
         <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-bl-full -z-0 opacity-50 transform group-hover:scale-110 transition-transform duration-700"></div>
         <div className="relative z-10">
-          <div className="flex items-center space-x-2 text-sm text-blue-600 font-semibold mb-3">
-            <Link to="/courses" className="hover:text-blue-800 transition-colors">Courses</Link>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-gray-500">{course.title}</span>
-          </div>
-          <h1 className="text-3xl font-extrabold text-gray-900 mb-3 tracking-tight">{course.title}</h1>
-          <p className="text-gray-600 max-w-3xl text-lg mb-6">{course.description}</p>
-          <p className="text-sm text-gray-500 font-medium">Instructor: {course.instructorName}</p>
-
-          {user?.role === 'professor' && (
-            <div className="flex space-x-3 mt-4">
-              <button className="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-blue-700 transition-colors">Edit Course</button>
-              <button className="bg-white text-gray-700 border border-gray-200 px-5 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-gray-50 transition-colors">Manage Students</button>
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div className="flex items-center space-x-2 text-sm text-blue-600 font-semibold">
+              <Link to="/courses" className="hover:text-blue-800 transition-colors">Courses</Link>
+              <ChevronRight className="w-4 h-4" />
+              <span className="text-gray-500">{course.title}</span>
             </div>
-          )}
+            {user?.role === 'professor' && course.professor_id === user.id && (
+              <button 
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl transition-all border border-gray-200 flex items-center gap-2 font-bold text-sm"
+              >
+                <Settings className="w-4 h-4" />
+                Edit Course
+              </button>
+            )}
+          </div>
+          
+          <div className="flex flex-col md:flex-row gap-8">
+            {course.image && (
+              <div className="w-full md:w-64 h-40 rounded-2xl overflow-hidden border border-gray-100 shadow-sm shrink-0">
+                <img src={course.image} alt={course.title} className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-blue-100">
+                  {course.category || 'Computer Science'}
+                </span>
+                {!course.is_open && (
+                  <span className="px-3 py-1 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-100">
+                    Closed
+                  </span>
+                )}
+              </div>
+              <h1 className="text-3xl font-extrabold text-gray-900 mb-3 tracking-tight">{course.title}</h1>
+              <p className="text-gray-600 max-w-2xl text-lg mb-4">{course.description}</p>
+              <p className="text-sm text-gray-500 font-medium">
+                Instructor: <Link to={`/profile/${course.professor_id}`} className="text-blue-600 hover:text-blue-800 hover:underline font-bold">{course.instructorName}</Link>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -256,11 +346,10 @@ export default function CourseView() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as Tab)}
-              className={`flex items-center justify-center px-6 py-3 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
-                activeTab === tab.id
+              className={`flex items-center justify-center px-6 py-3 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.id
                   ? 'bg-blue-50 text-blue-700 shadow-sm border border-blue-100/50'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent'
-              }`}
+                }`}
             >
               <tab.icon className={`w-4 h-4 mr-2 ${activeTab === tab.id ? 'text-blue-600' : 'text-gray-400'}`} />
               {tab.label}
@@ -297,9 +386,8 @@ export default function CourseView() {
                 return (
                   <div key={chapter.id} className="relative z-10 flex group">
                     <div className="flex-shrink-0 mr-6 mt-1.5 flex flex-col items-center">
-                      <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg shadow-sm border-4 border-white ${
-                        chapterCompleted ? 'bg-emerald-500 text-white' : hasProgress ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors'
-                      }`}>
+                      <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg shadow-sm border-4 border-white ${chapterCompleted ? 'bg-emerald-500 text-white' : hasProgress ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors'
+                        }`}>
                         {chapterCompleted ? <CheckCircle2 className="w-6 h-6" /> : index + 1}
                       </div>
                     </div>
@@ -365,7 +453,7 @@ export default function CourseView() {
                       <p className="text-xs text-gray-500 font-medium">{mat.type}</p>
                     </div>
                     {user?.role === 'professor' && (
-                      <button 
+                      <button
                         onClick={() => handleDeleteMaterial(mat.id)}
                         className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-2"
                         title="Delete Material"
@@ -375,9 +463,9 @@ export default function CourseView() {
                     )}
                   </div>
                   <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
-                    <a 
-                      href={mat.url} 
-                      target="_blank" 
+                    <a
+                      href={mat.url}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs font-bold text-blue-600 flex items-center hover:text-blue-800 transition-colors"
                     >
@@ -460,11 +548,116 @@ export default function CourseView() {
           </div>
         )}
 
+        {/* Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsSettingsOpen(false)}></div>
+          <div className="bg-white rounded-[40px] w-full max-w-2xl shadow-2xl overflow-hidden relative z-10 animate-in zoom-in-95 duration-200">
+            <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-black text-gray-900">Course Settings</h2>
+                <p className="text-sm text-gray-500 font-medium">Update course metadata or remove the course.</p>
+              </div>
+              <button 
+                onClick={() => setIsSettingsOpen(false)}
+                className="p-3 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-2xl transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSettings}>
+              <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto">
+                <div className="space-y-2">
+                  <label className="text-sm font-black text-gray-700 uppercase tracking-widest pl-1">Course Title</label>
+                  <input 
+                    type="text" 
+                    value={editTitle} 
+                    onChange={e => setEditTitle(e.target.value)} 
+                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-base font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-black text-gray-700 uppercase tracking-widest pl-1">Description</label>
+                  <textarea 
+                    rows={4}
+                    value={editDesc} 
+                    onChange={e => setEditDesc(e.target.value)} 
+                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-base font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-black text-gray-700 uppercase tracking-widest pl-1">Industry</label>
+                    <select 
+                      value={editCategory}
+                      onChange={e => setEditCategory(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    >
+                      <option value="Computer Science">Computer Science</option>
+                      <option value="Business">Business</option>
+                      <option value="Design">Design</option>
+                      <option value="Marketing">Marketing</option>
+                      <option value="Science">Science</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-black text-gray-700 uppercase tracking-widest pl-1">Image URL</label>
+                    <input 
+                      type="text" 
+                      value={editImage} 
+                      onChange={e => setEditImage(e.target.value)} 
+                      placeholder="https://..."
+                      className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-gray-100 flex flex-col gap-4">
+                  <div className="flex items-center justify-between p-6 bg-red-50 rounded-3xl border border-red-100">
+                    <div>
+                      <h4 className="text-sm font-black text-red-900 uppercase tracking-widest">Delete Course</h4>
+                      <p className="text-[11px] text-red-700 font-medium mt-1">This action is permanent and cannot be undone.</p>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={handleDeleteCourse}
+                      className="px-6 py-3 bg-white text-red-600 border border-red-200 rounded-2xl font-black text-xs hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2 inline" />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-8 py-6 bg-gray-50/50 border-t border-gray-100 flex justify-end gap-4">
+                <button 
+                  type="button" 
+                  onClick={() => setIsSettingsOpen(false)} 
+                  className="px-6 py-3 rounded-2xl font-bold text-sm text-gray-500 hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
         {/* Discussions Tab */}
         {activeTab === 'discussions' && (
           <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-bold text-gray-900">Overall Course Discussion</h2>
+              <h2 className="text-xl font-bold text-gray-900">Course Discussions</h2>
               <button
                 onClick={() => setIsDiscussionModalOpen(true)}
                 className="text-sm text-white font-bold bg-blue-600 hover:bg-blue-700 px-5 py-2.5 rounded-xl transition-colors shadow-sm"
@@ -473,114 +666,77 @@ export default function CourseView() {
               </button>
             </div>
 
-            <div className="space-y-4">
-              {courseDiscussions.map(disc => (
-                <div key={disc.id} className="border border-gray-100 rounded-xl p-5 hover:border-blue-200 transition-all shadow-sm">
-                  <div className="flex items-start">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center text-sm font-bold text-indigo-700 mr-4 shrink-0">
-                      {disc.author.charAt(0)}
+            <div className="space-y-3">
+              {pagedDiscussions.map(disc => (
+                <Link
+                  key={disc.id}
+                  to={`/courses/${course.id}/discussions/${disc.id}`}
+                  className="block bg-white border border-gray-100 rounded-2xl hover:border-blue-200 hover:shadow-md transition-all group"
+                >
+                  <div className="flex">
+                    {/* Upvote sidebar */}
+                    <div className="flex flex-col items-center justify-center py-4 px-4 bg-gray-50/70 border-r border-gray-100 rounded-l-2xl gap-0.5 min-w-[56px]">
+                      <ChevronUp className="w-4 h-4 text-gray-400" />
+                      <span className={`text-sm font-black ${(disc.upvotes || 0) > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+                        {disc.upvotes || 0}
+                      </span>
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex flex-col">
-                          {disc.chapterId && (
-                            <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">
-                              From: {course.chapters.find(ch => ch.id === disc.chapterId)?.title || 'Chapter'}
-                              {disc.topicId && (
-                                <span className="text-gray-400"> • {course.chapters.find(ch => ch.id === disc.chapterId)?.topics.find(t => t.id === disc.topicId)?.title || 'Topic'}</span>
-                              )}
-                            </span>
+
+                    {/* Content */}
+                    <div className="flex-1 p-5 min-w-0">
+                      {disc.chapterId && (
+                        <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1 block">
+                          {course.chapters.find(ch => ch.id === disc.chapterId)?.title || 'Chapter'}
+                          {disc.topicId && (
+                            <span className="text-gray-400"> • {course.chapters.find(ch => ch.id === disc.chapterId)?.topics.find(t => t.id === disc.topicId)?.title || 'Topic'}</span>
                           )}
-                          <h4 className="font-bold text-gray-900 text-base">{disc.title}</h4>
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-500 mb-3 block">Started by <span className="font-semibold text-gray-700">{disc.author}</span> • {disc.date}</p>
-                      <p className="text-sm text-gray-700 mb-4 line-clamp-2">{disc.content}</p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center text-sm text-gray-500 font-medium bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                          <MessageSquare className="w-4 h-4 mr-1.5" />
-                          {disc.replies} replies
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {user?.role === 'professor' && (
-                            awardingDiscId === disc.id ? (
-                              <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
-                                <input type="text" value={awardUserId} onChange={e => setAwardUserId(e.target.value)} placeholder="User ID" className="w-16 text-xs border border-gray-200 rounded px-1 py-0.5" />
-                                <input type="number" value={awardPts} onChange={e => setAwardPts(Number(e.target.value))} className="w-12 text-xs border border-gray-200 rounded px-1 py-0.5" />
-                                <button onClick={() => handleAwardPoints(disc.id)} className="text-xs font-bold text-amber-700 hover:text-amber-900">Give</button>
-                                <button onClick={() => setAwardingDiscId(null)} className="text-xs text-gray-400">✕</button>
-                              </div>
-                            ) : (
-                              <button onClick={() => setAwardingDiscId(disc.id)} className="flex items-center text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100 hover:bg-amber-100 transition-colors">
-                                <Star className="w-3 h-3 mr-1" /> Award Points
-                              </button>
-                            )
-                          )}
-                          <button 
-                            onClick={() => toggleDiscussion(disc.id)}
-                            className="text-sm font-bold text-blue-600 hover:text-blue-800"
-                          >
-                            {expandedDiscussionId === disc.id ? 'Close Thread' : 'Join Thread →'}
-                          </button>
-                        </div>
+                        </span>
+                      )}
+                      <h4 className="font-bold text-gray-900 text-base group-hover:text-blue-600 transition-colors truncate">{disc.title}</h4>
+                      <p className="text-sm text-gray-500 mt-1 mb-2 line-clamp-2">{disc.content}</p>
+
+                      <div className="flex items-center gap-4 text-xs text-gray-400 font-bold">
+                        <span className="flex items-center gap-1.5">
+                          <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[9px] font-bold">
+                            {disc.author.charAt(0)}
+                          </div>
+                          {disc.author}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          {disc.replies}
+                        </span>
+                        <span>{disc.date}</span>
                       </div>
                     </div>
+
+                    {/* Thumbnail */}
+                    {disc.image && (
+                      <div className="w-24 h-24 m-4 rounded-xl overflow-hidden border border-gray-100 shrink-0 hidden sm:block">
+                        <img src={disc.image} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    )}
                   </div>
-
-                  {/* Inline replies in CourseView */}
-                  {expandedDiscussionId === disc.id && (
-                    <div className="border-t border-gray-100 bg-gray-50/30 -mx-5 -mb-5 mt-5">
-                      <div className="p-5 space-y-4">
-                        <div className="space-y-3 ml-10 border-l-2 border-gray-100 pl-5 py-2">
-                          {disc.replyList && disc.replyList.length > 0 ? (
-                            disc.replyList.map(reply => (
-                              <div key={reply.id} className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm relative">
-                                <div className="absolute -left-[26px] top-4 w-3 h-3 rounded-full bg-gray-200 border-2 border-gray-50"></div>
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center space-x-2">
-                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                                      reply.role === 'professor' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-700'
-                                    }`}>
-                                      {reply.role === 'professor' ? <BookOpen className="w-3 h-3" /> : reply.author.charAt(0)}
-                                    </div>
-                                    <span className="text-sm font-bold text-gray-900">{reply.author}</span>
-                                    {reply.role === 'professor' && (
-                                      <span className="bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-indigo-100">Professor</span>
-                                    )}
-                                  </div>
-                                  <span className="text-xs text-gray-400 font-medium">{reply.date}</span>
-                                </div>
-                                <p className="text-sm text-gray-600 leading-relaxed ml-8">{reply.text}</p>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-sm text-gray-500 font-medium italic">No replies yet. Be the first!</div>
-                          )}
-                        </div>
-
-                        {/* Reply form */}
-                        <form onSubmit={(e) => handleCreateReply(e, disc.id)} className="ml-10 relative">
-                          <textarea 
-                            value={replyContent}
-                            onChange={(e) => setReplyContent(e.target.value)}
-                            placeholder="Write a reply..."
-                            className="w-full bg-white border border-gray-200 rounded-xl pl-4 pr-14 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm resize-none h-16"
-                          ></textarea>
-                          <button 
-                            type="submit"
-                            disabled={!replyContent.trim()}
-                            className="absolute right-2 bottom-2 p-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                          </button>
-                        </form>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                </Link>
               ))}
               {courseDiscussions.length === 0 && (
-                <div className="text-center py-12 text-gray-500 font-medium">No discussions yet. Start one!</div>
+                <div className="text-center py-16 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                  <MessageSquare className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 font-bold">No discussions yet</p>
+                  <p className="text-gray-400 text-sm mt-1">Start a conversation to get things going!</p>
+                </div>
+              )}
+              
+              {/* Discussions Pagination (Load More) */}
+              {courseDiscussions.length > pagedDiscussions.length && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    onClick={(e) => { e.preventDefault(); setDiscussionsPage(p => p + 1); }}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 px-6 rounded-xl transition-colors text-sm"
+                  >
+                    Load More Discussions
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -617,14 +773,14 @@ export default function CourseView() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {leaderboard.map((student, idx) => (
+                  {pagedLeaderboard.map((student, idx) => (
                     <tr key={student.id} className={`hover:bg-gray-50 transition-colors ${user?.id === student.id ? 'bg-blue-50/50 hover:bg-blue-50' : ''}`}>
                       <td className="px-6 py-4 text-center">
-                        {idx < 3 ? (
+                        {idx < 3 && leaderboardPage === 1 ? (
                           <div className={`inline-flex w-8 h-8 rounded-full items-center justify-center font-bold text-white shadow-sm
                             ${idx === 0 ? 'bg-gradient-to-br from-yellow-300 to-yellow-500' :
                               idx === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400' :
-                              'bg-gradient-to-br from-amber-500 to-amber-700'}`}>
+                                'bg-gradient-to-br from-amber-500 to-amber-700'}`}>
                             {student.rank}
                           </div>
                         ) : (
@@ -636,9 +792,9 @@ export default function CourseView() {
                           <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center font-bold text-xs mr-3">
                             {student.student.charAt(0)}
                           </div>
-                          <span className={`font-bold ${user?.id === student.id ? 'text-blue-700' : 'text-gray-900'}`}>
+                          <Link to={`/profile/${student.id}`} className={`font-bold hover:underline ${user?.id === student.id ? 'text-blue-700' : 'text-gray-900'}`}>
                             {student.student} {user?.id === student.id && '(You)'}
-                          </span>
+                          </Link>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -654,12 +810,99 @@ export default function CourseView() {
                 </tbody>
               </table>
             </div>
+
+            {/* Leaderboard Pagination */}
+            {leaderboard.length > ITEMS_PER_PAGE && (
+              <div className="flex justify-between items-center mt-4 px-2 text-sm text-gray-600 font-medium">
+                <div>Page {leaderboardPage} of {Math.ceil(leaderboard.length / ITEMS_PER_PAGE)}</div>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={() => setLeaderboardPage(p => Math.max(1, p - 1))} 
+                    disabled={leaderboardPage === 1}
+                    className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+                  >Prev</button>
+                  <button 
+                    onClick={() => setLeaderboardPage(p => Math.min(Math.ceil(leaderboard.length / ITEMS_PER_PAGE), p + 1))} 
+                    disabled={leaderboardPage === Math.ceil(leaderboard.length / ITEMS_PER_PAGE)}
+                    className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+                  >Next</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* ── Students Tab (Professor Only) ── */}
+        {/* Enrollment Management Dialog (Professor Only) */}
         {activeTab === 'students' && user?.role === 'professor' && (
-          <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
+          <div className="space-y-10 animate-in slide-in-from-bottom-2 duration-300">
+            {/* Enrollment Controls */}
+            <div className="bg-gray-50 rounded-[32px] p-8 border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+              <div className="flex items-center gap-6">
+                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg transition-colors ${course.is_open ? 'bg-emerald-500 shadow-emerald-200' : 'bg-gray-400 shadow-gray-200'}`}>
+                  {course.is_open ? <ToggleRight className="w-8 h-8 text-white" /> : <ToggleLeft className="w-8 h-8 text-white" />}
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-gray-900">Enrollment Status</h3>
+                  <p className="text-sm font-medium text-gray-500">
+                    {course.is_open ? 'Course is currently accepting new student join requests.' : 'Course is closed. Students cannot request to join.'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={toggleEnrollment}
+                className={`px-8 py-4 rounded-2xl font-black text-sm transition-all shadow-lg ${
+                  course.is_open 
+                  ? 'bg-white text-gray-900 border border-gray-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 shadow-gray-100' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200'
+                }`}
+              >
+                {course.is_open ? 'Close Enrollment' : 'Open Enrollment'}
+              </button>
+            </div>
+
+            {/* Pending Requests Section */}
+            {pendingRequests.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-black text-gray-900 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-amber-500" />
+                  Pending Requests
+                  <span className="ml-2 px-2.5 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full">
+                    {pendingRequests.length}
+                  </span>
+                </h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {pendingRequests.map(req => (
+                    <div key={req.id} className="bg-white border border-amber-100 rounded-[24px] p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-700 font-bold text-sm">
+                          {req.user_name?.charAt(0) || req.user_id.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900">{req.user_name || req.user_id}</p>
+                          <p className="text-xs text-gray-400 font-medium">{req.user_email || 'Student'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleApproveRequest(req.id)}
+                          className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-lg transition-all"
+                          title="Approve"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleRejectRequest(req.id)}
+                          className="p-2 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-lg transition-all"
+                          title="Reject"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Header row */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
@@ -672,16 +915,36 @@ export default function CourseView() {
                 )}
               </div>
 
-              {/* Search */}
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                <input
-                  type="text"
-                  value={studentSearch}
-                  onChange={e => setStudentSearch(e.target.value)}
-                  placeholder="Search students..."
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-                />
+              <div className="flex flex-col sm:flex-row gap-3">
+                {/* Enroll Form */}
+                <form onSubmit={handleEnrollStudent} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={enrollStudentId}
+                    onChange={e => setEnrollStudentId(e.target.value)}
+                    placeholder="Enter User ID (e.g. u1)"
+                    className="w-full sm:w-48 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={enrolling || !enrollStudentId.trim()}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+                  >
+                    {enrolling ? '...' : '+ Add Student'}
+                  </button>
+                </form>
+
+                {/* Search */}
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={studentSearch}
+                    onChange={e => setStudentSearch(e.target.value)}
+                    placeholder="Search students..."
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                  />
+                </div>
               </div>
             </div>
 
@@ -708,8 +971,8 @@ export default function CourseView() {
                     <p className="text-2xl font-black text-emerald-700">
                       {totalTopics > 0
                         ? Math.round(
-                            students.reduce((sum, s) => sum + (s.completedTopics / (totalTopics || 1)) * 100, 0) / students.length
-                          )
+                          students.reduce((sum, s) => sum + (s.completedTopics / (totalTopics || 1)) * 100, 0) / students.length
+                        )
                         : 0}%
                     </p>
                     <p className="text-xs font-bold text-emerald-500 uppercase tracking-wide">Avg Progress</p>
@@ -793,15 +1056,15 @@ export default function CourseView() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filteredStudents.map(student => {
+                    {pagedStudents.map(student => {
                       const progressPct = totalTopics > 0
                         ? Math.round((student.completedTopics / totalTopics) * 100)
                         : 0;
                       const progressColor =
                         progressPct === 100 ? 'bg-emerald-500' :
-                        progressPct >= 50 ? 'bg-blue-500' :
-                        progressPct > 0 ? 'bg-amber-400' :
-                        'bg-gray-200';
+                          progressPct >= 50 ? 'bg-blue-500' :
+                            progressPct > 0 ? 'bg-amber-400' :
+                              'bg-gray-200';
 
                       return (
                         <tr key={student.id} className="hover:bg-gray-50 transition-colors">
@@ -812,7 +1075,7 @@ export default function CourseView() {
                                 {student.name.charAt(0).toUpperCase()}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-bold text-gray-900 truncate">{student.name}</p>
+                                <Link to={`/profile/${student.id}`} className="block font-bold text-gray-900 hover:text-blue-600 hover:underline truncate">{student.name}</Link>
                                 <p className="text-xs text-gray-400 font-medium flex items-center gap-1 truncate">
                                   <Mail className="w-3 h-3 shrink-0" />
                                   {student.email}
@@ -882,6 +1145,25 @@ export default function CourseView() {
                 </table>
               </div>
             )}
+            
+            {/* Students Pagination */}
+            {!studentsLoading && !studentsError && filteredStudents.length > ITEMS_PER_PAGE && (
+              <div className="flex justify-between items-center mt-4 px-2 text-sm text-gray-600 font-medium">
+                <div>Page {studentsPage} of {Math.ceil(filteredStudents.length / ITEMS_PER_PAGE)}</div>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={() => setStudentsPage(p => Math.max(1, p - 1))} 
+                    disabled={studentsPage === 1}
+                    className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+                  >Prev</button>
+                  <button 
+                    onClick={() => setStudentsPage(p => Math.min(Math.ceil(filteredStudents.length / ITEMS_PER_PAGE), p + 1))} 
+                    disabled={studentsPage === Math.ceil(filteredStudents.length / ITEMS_PER_PAGE)}
+                    className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+                  >Next</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -890,133 +1172,133 @@ export default function CourseView() {
           <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
             {/* AI Insights content */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
-               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                 <div className="flex-1">
-                    <h2 className="text-3xl font-black mb-2 flex items-center">
-                      <Sparkles className="w-8 h-8 mr-3 text-blue-200 animate-pulse" />
-                      Course Analytics & AI Insights
-                    </h2>
-                   <p className="text-blue-100 font-medium text-lg max-w-2xl">
-                     AI-driven analysis of quiz performance, participation, and learning gaps across the entire course.
-                   </p>
-                 </div>
-                 {isAiLoading && <div className="animate-spin w-8 h-8 border-4 border-white/20 border-t-white rounded-full"></div>}
-               </div>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex-1">
+                  <h2 className="text-3xl font-black mb-2 flex items-center">
+                    <Sparkles className="w-8 h-8 mr-3 text-blue-200 animate-pulse" />
+                    Course Analytics & AI Insights
+                  </h2>
+                  <p className="text-blue-100 font-medium text-lg max-w-2xl">
+                    AI-driven analysis of quiz performance, participation, and learning gaps across the entire course.
+                  </p>
+                </div>
+                {isAiLoading && <div className="animate-spin w-8 h-8 border-4 border-white/20 border-t-white rounded-full"></div>}
+              </div>
             </div>
 
             {aiReport ? (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Main Insights & Struggling Topics */}
                 <div className="lg:col-span-2 space-y-8">
-                   {/* Learning Gaps Card */}
-                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                      <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-                        <h3 className="font-bold text-gray-900 flex items-center italic">
-                          <Sparkles className="w-5 h-5 mr-2 text-indigo-500" /> Top Learning Gaps (AI Analysis)
-                        </h3>
-                      </div>
-                      <div className="divide-y divide-gray-50">
-                        {aiReport.struggling_topics.map((topic: any, idx: number) => (
-                          <div key={idx} className="p-6 hover:bg-red-50/30 transition-colors">
-                            <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <h4 className="font-bold text-gray-900">{topic.topic_title}</h4>
-                                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">{topic.chapter_title}</p>
-                              </div>
-                              <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-black border border-red-100 italic">
-                                {topic.fail_rate}% Struggle Rate
-                              </span>
+                  {/* Learning Gaps Card */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                      <h3 className="font-bold text-gray-900 flex items-center italic">
+                        <Sparkles className="w-5 h-5 mr-2 text-indigo-500" /> Top Learning Gaps (AI Analysis)
+                      </h3>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                      {aiReport.struggling_topics.map((topic: any, idx: number) => (
+                        <div key={idx} className="p-6 hover:bg-red-50/30 transition-colors">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h4 className="font-bold text-gray-900">{topic.topic_title}</h4>
+                              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">{topic.chapter_title}</p>
                             </div>
-                            <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
-                              <div className="bg-red-500 h-2 rounded-full" style={{ width: `${topic.fail_rate}%` }}></div>
-                            </div>
-                            <p className="text-sm text-gray-600 bg-white p-3 rounded-xl border border-red-100 shadow-sm leading-relaxed">
-                              <span className="flex items-center font-bold text-red-700 mb-1">
-                                <Sparkles className="w-3.5 h-3.5 mr-1.5" /> AI Observation
-                              </span>
-                              {topic.common_mistake}
-                            </p>
+                            <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-black border border-red-100 italic">
+                              {topic.fail_rate}% Struggle Rate
+                            </span>
                           </div>
-                        ))}
-                        {aiReport.struggling_topics.length === 0 && (
-                          <div className="p-12 text-center text-gray-400 font-bold italic">No major learning gaps identified yet. Great work!</div>
-                        )}
-                      </div>
-                   </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
+                            <div className="bg-red-500 h-2 rounded-full" style={{ width: `${topic.fail_rate}%` }}></div>
+                          </div>
+                          <p className="text-sm text-gray-600 bg-white p-3 rounded-xl border border-red-100 shadow-sm leading-relaxed">
+                            <span className="flex items-center font-bold text-red-700 mb-1">
+                              <Sparkles className="w-3.5 h-3.5 mr-1.5" /> AI Observation
+                            </span>
+                            {topic.common_mistake}
+                          </p>
+                        </div>
+                      ))}
+                      {aiReport.struggling_topics.length === 0 && (
+                        <div className="p-12 text-center text-gray-400 font-bold italic">No major learning gaps identified yet. Great work!</div>
+                      )}
+                    </div>
+                  </div>
 
-                   {/* Insight Box */}
-                   <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-6 relative group overflow-hidden">
-                      <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500"></div>
-                      <h4 className="text-indigo-800 font-black text-sm uppercase tracking-widest mb-3 flex items-center">
-                        <MessageSquare className="w-4 h-4 mr-2" /> Pedagogical Recommendations
-                      </h4>
-                      <p className="text-indigo-900 font-medium text-lg leading-relaxed italic">
-                        "{aiReport.insight}"
-                      </p>
-                      <div className="mt-4 flex gap-2">
-                        <button className="text-xs font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors">Generate Action Plan →</button>
-                      </div>
-                   </div>
+                  {/* Insight Box */}
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-6 relative group overflow-hidden">
+                    <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500"></div>
+                    <h4 className="text-indigo-800 font-black text-sm uppercase tracking-widest mb-3 flex items-center">
+                      <MessageSquare className="w-4 h-4 mr-2" /> Pedagogical Recommendations
+                    </h4>
+                    <p className="text-indigo-900 font-medium text-lg leading-relaxed italic">
+                      "{aiReport.insight}"
+                    </p>
+                    <div className="mt-4 flex gap-2">
+                      <button className="text-xs font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors">Generate Action Plan →</button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Sidebar Stats */}
                 <div className="space-y-6">
-                   {/* Participation Summary */}
-                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                      <h4 className="font-bold text-gray-900 mb-6 pb-2 border-b border-gray-50">Participation Analysis</h4>
-                      
-                      <div className="space-y-6">
-                        <div>
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">High Performers</span>
-                            <span className="font-bold text-gray-900">{aiReport.high_performers.length}</span>
-                          </div>
-                          <div className="flex -space-x-2 overflow-hidden mb-1">
-                            {aiReport.high_performers.slice(0, 5).map((s: any) => (
-                              <div key={s.student_id} className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-black" title={s.student_name}>
-                                {s.student_name[0]}
-                              </div>
-                            ))}
-                            {aiReport.high_performers.length > 5 && (
-                              <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-100 text-gray-600 flex items-center justify-center text-[10px] font-black">
-                                +{aiReport.high_performers.length - 5}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                  {/* Participation Summary */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                    <h4 className="font-bold text-gray-900 mb-6 pb-2 border-b border-gray-50">Participation Analysis</h4>
 
-                        <div>
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-xs font-black text-amber-600 uppercase tracking-widest">Low Participation</span>
-                            <span className="font-bold text-gray-900">{aiReport.low_participation.length}</span>
-                          </div>
-                          <div className="flex -space-x-2 overflow-hidden mb-1">
-                            {aiReport.low_participation.slice(0, 5).map((s: any) => (
-                              <div key={s.student_id} className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] font-black" title={s.student_name}>
-                                {s.student_name[0]}
-                              </div>
-                            ))}
-                            {aiReport.low_participation.length > 5 && (
-                              <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-100 text-gray-600 flex items-center justify-center text-[10px] font-black">
-                                +{aiReport.low_participation.length - 5}
-                              </div>
-                            )}
-                          </div>
+                    <div className="space-y-6">
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">High Performers</span>
+                          <span className="font-bold text-gray-900">{aiReport.high_performers.length}</span>
+                        </div>
+                        <div className="flex -space-x-2 overflow-hidden mb-1">
+                          {aiReport.high_performers.slice(0, 5).map((s: any) => (
+                            <div key={s.student_id} className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-black" title={s.student_name}>
+                              {s.student_name[0]}
+                            </div>
+                          ))}
+                          {aiReport.high_performers.length > 5 && (
+                            <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-100 text-gray-600 flex items-center justify-center text-[10px] font-black">
+                              +{aiReport.high_performers.length - 5}
+                            </div>
+                          )}
                         </div>
                       </div>
-                   </div>
 
-                   {/* Call to action */}
-                   <div className="bg-gray-900 rounded-2xl p-6 text-white shadow-lg">
-                      <h4 className="font-bold mb-3 flex items-center"><Award className="w-5 h-5 mr-2 text-yellow-400" /> Improvement Target</h4>
-                      <p className="text-sm text-gray-400 mb-4 line-relaxed">
-                        AI suggests focusing on <span className="text-white font-bold">{aiReport.struggling_topics[0]?.topic_title || 'overall participation'}</span> this week to improve course retention.
-                      </p>
-                      <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors shadow-sm">
-                        Schedule Review Session
-                      </button>
-                   </div>
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-xs font-black text-amber-600 uppercase tracking-widest">Low Participation</span>
+                          <span className="font-bold text-gray-900">{aiReport.low_participation.length}</span>
+                        </div>
+                        <div className="flex -space-x-2 overflow-hidden mb-1">
+                          {aiReport.low_participation.slice(0, 5).map((s: any) => (
+                            <div key={s.student_id} className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] font-black" title={s.student_name}>
+                              {s.student_name[0]}
+                            </div>
+                          ))}
+                          {aiReport.low_participation.length > 5 && (
+                            <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-100 text-gray-600 flex items-center justify-center text-[10px] font-black">
+                              +{aiReport.low_participation.length - 5}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Call to action */}
+                  <div className="bg-gray-900 rounded-2xl p-6 text-white shadow-lg">
+                    <h4 className="font-bold mb-3 flex items-center"><Award className="w-5 h-5 mr-2 text-yellow-400" /> Improvement Target</h4>
+                    <p className="text-sm text-gray-400 mb-4 line-relaxed">
+                      AI suggests focusing on <span className="text-white font-bold">{aiReport.struggling_topics[0]?.topic_title || 'overall participation'}</span> this week to improve course retention.
+                    </p>
+                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors shadow-sm">
+                      Schedule Review Session
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -1070,11 +1352,10 @@ export default function CourseView() {
                         key={t}
                         type="button"
                         onClick={() => setNewMaterialType(t)}
-                        className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                          newMaterialType === t 
-                            ? 'bg-blue-600 border-blue-600 text-white shadow-md' 
+                        className={`py-2 rounded-xl text-xs font-bold border transition-all ${newMaterialType === t
+                            ? 'bg-blue-600 border-blue-600 text-white shadow-md'
                             : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                        }`}
+                          }`}
                       >
                         {t}
                       </button>
