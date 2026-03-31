@@ -14,6 +14,7 @@ export interface User {
   in_person_enabled?: boolean;
   office_hours: string;
   meeting_link: string;
+  rating?: number;
   stats?: {
     completed_topics_count: number;
     quizzes_taken_count: number;

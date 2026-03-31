@@ -27,7 +27,8 @@ export default function MainLayout() {
   const navItems = useMemo(() => {
     const items = [
       { to: "/", icon: LayoutDashboard, label: "Dashboard", exact: true },
-      { to: "/courses", icon: BookOpen, label: "Courses" },
+      { to: "/registrations", icon: BookOpen, label: "Registrations" },
+      { to: "/my-courses", icon: BookOpen, label: "My Courses" },
       { to: "/meetings", icon: Calendar, label: "Meetings" },
       { to: "/profile", icon: UserIcon, label: "Profile" },
     ];

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDiscussionStore } from '../store/discussionStore';
 import { useAuthStore } from '../store/authStore';
 import { useCourseStore } from '../store/courseStore';
+import { API_BASE } from '../lib/api';
 import {
   ArrowLeft,
   ThumbsUp,
@@ -40,6 +41,8 @@ export default function DiscussionThread() {
   const [mentionQuery, setMentionQuery] = useState('');
   const [pointsUserId, setPointsUserId] = useState<string | null>(null);
   const [pointsAmount, setPointsAmount] = useState(5);
+  const [courseStudents, setCourseStudents] = useState<{id: string, name: string}[]>([]);
+  const [mentionCoords, setMentionCoords] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,41 +62,143 @@ export default function DiscussionThread() {
       : 'Discussion | LearnPulse';
   }, [currentDiscussion]);
 
-  // Handle @mention detection in textarea
+  useEffect(() => {
+    if (courseId) {
+      fetch(`${API_BASE}/api/courses/${courseId}/students`)
+        .then(r => r.ok ? r.json() : [])
+        .then(data => {
+          if (Array.isArray(data)) {
+            setCourseStudents(data.map((s: any) => ({ id: s.id, name: s.name })));
+          } else {
+            setCourseStudents([]);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch course students:", err);
+          setCourseStudents([]);
+        });
+    }
+  }, [courseId]);
+
+  // Helper to get caret coordinates (mirror div strategy)
+  const getCaretCoordinates = (element: HTMLTextAreaElement, position: number) => {
+    const div = document.createElement('div');
+    const style = window.getComputedStyle(element);
+    
+    // Copy essential styles
+    const properties = [
+      'direction', 'boxSizing', 'width', 'height', 'overflowX', 'overflowY',
+      'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+      'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+      'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize',
+      'lineHeight', 'fontFamily', 'textAlign', 'textTransform', 'textIndent',
+      'textDecoration', 'letterSpacing', 'wordSpacing'
+    ];
+    
+    div.style.position = 'absolute';
+    div.style.visibility = 'hidden';
+    div.style.whiteSpace = 'pre-wrap';
+    div.style.wordWrap = 'break-word';
+    
+    properties.forEach(prop => {
+      // @ts-ignore
+      div.style[prop] = style[prop];
+    });
+    
+    // For some reason, some properties are not copied correctly by style[prop]
+    div.style.width = style.width;
+    
+    document.body.appendChild(div);
+    
+    // Split text at cursor
+    div.textContent = element.value.substring(0, position);
+    const span = document.createElement('span');
+    span.textContent = element.value.substring(position) || '.';
+    div.appendChild(span);
+    
+    const coordinates = {
+      x: span.offsetLeft + parseInt(style.borderLeftWidth),
+      y: span.offsetTop + parseInt(style.borderTopWidth)
+    };
+    
+    document.body.removeChild(div);
+    return coordinates;
+  };
+
+  // Handle @mention detection in textarea (Enhanced to follow cursor)
   const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setReplyText(val);
+    
     const cursor = e.target.selectionStart;
     const textBeforeCursor = val.slice(0, cursor);
-    const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
-    if (mentionMatch) {
-      setShowMentions(true);
-      setMentionQuery(mentionMatch[1].toLowerCase());
-    } else {
-      setShowMentions(false);
+    
+    // Improved detection: find the last '@' that is either at the start or preceded by a space
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      // Check if it's a valid mention start (start of text or preceded by space)
+      const prevChar = textBeforeCursor[lastAtIndex - 1];
+      if (!prevChar || /\s/.test(prevChar)) {
+        const query = textBeforeCursor.slice(lastAtIndex + 1);
+        // Only trigger if there are no spaces in the query part
+        if (!/\s/.test(query)) {
+          setShowMentions(true);
+          setMentionQuery(query.toLowerCase());
+          
+          // Calculate coordinates for the menu
+          const coords = getCaretCoordinates(e.target, lastAtIndex);
+          setMentionCoords({
+            x: coords.x,
+            y: coords.y - e.target.scrollTop
+          });
+          return;
+        }
+      }
     }
+    
+    setShowMentions(false);
   }, []);
 
   const insertMention = (name: string) => {
     if (!textareaRef.current) return;
     const cursor = textareaRef.current.selectionStart;
     const textBefore = replyText.slice(0, cursor);
+    
+    // Find where the current mention segment starts
+    const lastAtIndex = textBefore.lastIndexOf('@');
+    if (lastAtIndex === -1) return;
+
     const textAfter = replyText.slice(cursor);
-    const replaced = textBefore.replace(/@(\w*)$/, `@${name} `);
-    setReplyText(replaced + textAfter);
+    const replacedBefore = replyText.slice(0, lastAtIndex) + `@${name} `;
+    
+    setReplyText(replacedBefore + textAfter);
     setShowMentions(false);
-    textareaRef.current.focus();
+    
+    // Set cursor position after the inserted name
+    setTimeout(() => {
+        if (textareaRef.current) {
+            const newPos = replacedBefore.length;
+            textareaRef.current.setSelectionRange(newPos, newPos);
+            textareaRef.current.focus();
+        }
+    }, 0);
   };
 
-  // Simulated user list for mentions
-  const allMentionableUsers = currentDiscussion
-    ? [
+  // User list for mentions (Students in course + Everyone if professor)
+  const allMentionableUsers = [
+    ...(currentDiscussion ? [
         { id: currentDiscussion.authorId, name: currentDiscussion.author },
         ...currentDiscussion.replyList
           .filter((r, i, arr) => arr.findIndex(x => x.authorId === r.authorId) === i)
           .map(r => ({ id: r.authorId, name: r.author }))
-      ].filter((u, i, arr) => arr.findIndex(x => x.id === u.id) === i)
-    : [];
+      ] : []),
+    ...courseStudents
+  ].filter((u, i, arr) => arr.findIndex(x => x.id === u.id) === i);
+
+  if (user?.role === 'professor') {
+    allMentionableUsers.unshift({ id: 'everyone', name: 'everyone' });
+  }
 
   const filteredMentions = allMentionableUsers.filter(u =>
     u.name.toLowerCase().includes(mentionQuery)
@@ -160,6 +265,13 @@ export default function DiscussionThread() {
     return parts.map((part, i) => {
       if (part.startsWith('@')) {
         const name = part.slice(1);
+        if (name === 'everyone') {
+          return (
+            <span key={i} className="bg-amber-100 text-amber-800 font-black px-1.5 py-0.5 rounded border border-amber-200">
+              {part}
+            </span>
+          );
+        }
         const mentioned = allMentionableUsers.find(u => u.name === name);
         return (
           <Link
@@ -484,25 +596,57 @@ export default function DiscussionThread() {
                 className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-sm text-gray-800 font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
               />
 
-              {/* Mention Dropdown */}
+              {/* Mention Dropdown - Correctly Positioned at Caret */}
               {showMentions && filteredMentions.length > 0 && (
-                <div className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden z-30 w-64 animate-in fade-in slide-in-from-bottom-2 duration-150">
-                  <div className="px-3 py-2 bg-gray-50 border-b border-gray-100">
-                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Mention a User</p>
+                <div 
+                  className="absolute bg-white/80 backdrop-blur-xl border border-white/40 rounded-[28px] shadow-2xl shadow-blue-500/10 overflow-hidden z-50 w-72 animate-in fade-in slide-in-from-top-2 duration-300"
+                  style={{
+                    left: `${mentionCoords.x}px`,
+                    top: `${mentionCoords.y + 24}px`, // Offset by text height
+                  }}
+                >
+                  <div className="px-5 py-3.5 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Mention a User</p>
+                    <AtSign className="w-3 h-3 text-blue-400" />
                   </div>
-                  {filteredMentions.map(u => (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => insertMention(u.name)}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-blue-50 transition-colors text-left"
-                    >
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center text-[10px] font-bold text-indigo-700">
-                        {u.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-sm font-bold text-gray-800">{u.name}</span>
-                    </button>
-                  ))}
+                  <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                    {filteredMentions.map(u => {
+                      const isEveryone = u.id === 'everyone';
+                      const isProfessor = u.name.toLowerCase().includes('prof') || (u as any).role === 'professor'; // Heuristic if role not in u
+                      
+                      return (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => insertMention(u.name)}
+                          className="w-full px-5 py-3.5 flex items-center gap-4 hover:bg-blue-50/50 transition-all text-left group"
+                        >
+                          <div className={`w-9 h-9 rounded-2xl flex items-center justify-center text-xs font-bold transition-transform group-hover:scale-110 ${
+                            isEveryone 
+                              ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-orange-200' 
+                              : isProfessor
+                                ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-200'
+                                : 'bg-gray-100 text-gray-600 border border-gray-200'
+                          }`}>
+                            {isEveryone ? <Sparkles className="w-4 h-4" /> : u.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-extrabold text-gray-800 truncate group-hover:text-blue-600 transition-colors">
+                                {u.name}
+                              </span>
+                              {isProfessor && (
+                                <span className="bg-blue-100 text-blue-700 text-[8px] font-black px-1.5 py-0.5 rounded uppercase">Pro</span>
+                              )}
+                            </div>
+                            <p className="text-[10px] font-medium text-gray-400 truncate">
+                              {isEveryone ? 'Notify everyone in course' : 'Member'}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

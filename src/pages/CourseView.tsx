@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { BookOpen, FileText, MessageSquare, Trophy, ChevronRight, ChevronUp, Download, CheckCircle2, ClipboardList, Users, Search, UserMinus, Mail, Award, TrendingUp, X, Video, ExternalLink, Sparkles, Settings, Trash2, ToggleLeft, ToggleRight, Check, Clock } from 'lucide-react';
+import { BookOpen, FileText, MessageSquare, Trophy, ChevronRight, ChevronUp, Download, CheckCircle2, ClipboardList, Users, Search, UserMinus, Mail, Award, TrendingUp, X, Video, ExternalLink, Sparkles, Settings, Trash2, ToggleLeft, ToggleRight, Check, Clock, Plus } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDiscussionStore } from '../store/discussionStore';
 import { useCourseStore } from '../store/courseStore';
@@ -39,6 +39,7 @@ export default function CourseView() {
   const [isDiscussionModalOpen, setIsDiscussionModalOpen] = useState(false);
   const [newDiscTitle, setNewDiscTitle] = useState('');
   const [newDiscContent, setNewDiscContent] = useState('');
+  const [newDiscImage, setNewDiscImage] = useState<string | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [quizzes, setQuizzes] = useState<QuizInfo[]>([]);
   const [aiReport, setAiReport] = useState<any>(null);
@@ -233,12 +234,14 @@ export default function CourseView() {
       authorId: user.id || 'u999',
       title: newDiscTitle,
       content: newDiscContent,
-      courseId: course.id
+      courseId: course.id,
+      image: newDiscImage
     });
 
     setIsDiscussionModalOpen(false);
     setNewDiscTitle('');
     setNewDiscContent('');
+    setNewDiscImage(null);
   };
 
   const { addMaterial, removeMaterial } = useCourseStore();
@@ -1433,6 +1436,45 @@ export default function CourseView() {
                     placeholder="Describe your question or discussion point in detail..."
                     className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-32 transition-shadow"
                   />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Attachment (Optional)</label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => setNewDiscImage(reader.result as string);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="hidden"
+                      id="disc-image-upload"
+                    />
+                    <label 
+                      htmlFor="disc-image-upload"
+                      className="cursor-pointer bg-gray-50 border border-gray-200 hover:bg-gray-100 px-4 py-2 rounded-xl text-xs font-bold text-gray-600 transition-all flex items-center gap-2"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      {newDiscImage ? 'Change Photo' : 'Upload Photo'}
+                    </label>
+                    {newDiscImage && (
+                      <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-100">
+                        <img src={newDiscImage} alt="Preview" className="w-full h-full object-cover" />
+                        <button 
+                          type="button"
+                          onClick={() => setNewDiscImage(null)}
+                          className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl-lg"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

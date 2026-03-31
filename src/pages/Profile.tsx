@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore, type User } from '../store/authStore';
 import { 
-  User as UserIcon, Mail, Clock, Calendar, Shield, Save, MessageCircle, Link as LinkIcon, ArrowLeft, BookOpen, Plus, Trash, Globe, MapPin, CheckCircle, Trophy, Star, Users, TrendingUp, ClipboardList, Activity
+  User as UserIcon, Mail, Clock, Calendar, Shield, Save, MessageCircle, ArrowLeft, BookOpen, Plus, Trash, Globe, MapPin, CheckCircle, Trophy, Star, Users, TrendingUp, Activity, Beaker, ChevronRight
 } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { StatCard } from '../components/Dashboard/StatCard';
@@ -30,7 +30,7 @@ export default function Profile() {
   const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
   const [meetingNote, setMeetingNote] = useState('');
   const [meetingSlot, setMeetingSlot] = useState('');
-  const [meetingType, setMeetingType] = useState<'Zoom' | 'In-person'>('Zoom');
+  const [meetingType] = useState<'Zoom' | 'In-person'>('Zoom');
   const [meetingRequested, setMeetingRequested] = useState(false);
 
   const isOwnProfile = !userId || userId === currentUser?.id;
@@ -38,7 +38,7 @@ export default function Profile() {
 
   useEffect(() => {
     if (!viewUserId) return;
-    document.title = profileUser ? `${profileUser.name} | Profile` : 'Profile | AI Learning Hub';
+    document.title = profileUser ? `${profileUser.name} | Profile` : 'Profile | LearnPulse';
     if (isOwnProfile && currentUser) {
       setProfileUser(currentUser);
       setEditName(currentUser.name);
@@ -64,8 +64,14 @@ export default function Profile() {
     }
   }, [viewUserId, isOwnProfile, currentUser]);
 
-  if (loading) return <div className="text-center py-20 text-gray-500 font-medium">Loading profile...</div>;
-  if (!profileUser) return <div className="text-center py-20 text-gray-500 font-medium">Profile not found.</div>;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center py-32 space-y-4">
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      <p className="text-gray-400 font-black tracking-widest text-xs uppercase animate-pulse">Synchronizing Data...</p>
+    </div>
+  );
+  
+  if (!profileUser) return <div className="text-center py-20 text-gray-500 font-medium font-black uppercase tracking-widest">Profile not found.</div>;
 
   const officeHoursParsed = profileUser.office_hours ? (() => {
     try { return JSON.parse(profileUser.office_hours); } catch { return []; }
@@ -109,7 +115,8 @@ export default function Profile() {
           professor_id: viewUserId,
           note: meetingNote,
           slot: meetingSlot,
-          meeting_type: meetingType
+          meeting_type: meetingType,
+          user_id: currentUser?.id
         })
       });
       setMeetingRequested(true);
@@ -122,26 +129,212 @@ export default function Profile() {
     }
   };
 
+  // ─── Public Profile View (Premium Design) ─────────────────────
+  if (!isOwnProfile) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-12 animate-in fade-in duration-700 pb-20">
+        <button 
+          onClick={() => window.history.back()} 
+          className="group flex items-center gap-2 text-xs font-black text-gray-400 hover:text-blue-600 transition-colors uppercase tracking-[0.2em]"
+        >
+          <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" /> 
+          Return to Hub
+        </button>
+
+        {/* Hero Section */}
+        <div className="relative bg-white rounded-[40px] border border-gray-100 p-12 shadow-2xl shadow-gray-200/50 overflow-hidden">
+          <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-blue-50/50 to-transparent pointer-events-none" />
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-600/5 rounded-full blur-3xl" />
+          
+          <div className="relative z-10 flex flex-col md:flex-row items-center gap-10">
+            <div className="w-40 h-40 rounded-[32px] bg-gradient-to-br from-blue-600 to-indigo-700 p-1 shadow-2xl shadow-blue-200">
+              <div className="w-full h-full bg-white rounded-[28px] flex items-center justify-center text-5xl font-black text-blue-700">
+                {profileUser.name.charAt(0)}
+              </div>
+            </div>
+            
+            <div className="flex-1 text-center md:text-left">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-4">
+                <h1 className="text-4xl font-black text-gray-900 tracking-tight">{profileUser.name}</h1>
+                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                  profileUser.role === 'professor' 
+                    ? 'bg-blue-50 border-blue-100 text-blue-700' 
+                    : 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                }`}>
+                  {profileUser.role} Account
+                </span>
+              </div>
+              <p className="text-lg text-gray-500 font-medium max-w-2xl mb-8 leading-relaxed">
+                {profileUser.bio || `A dedicated ${profileUser.role} at LearnPulse University, contributing to the future of AI-powered education.`}
+              </p>
+              
+              <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl text-gray-600 text-sm font-bold border border-gray-100">
+                  <Mail className="w-4 h-4 text-blue-500" />
+                  {profileUser.email || 'Contact via portal'}
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl text-gray-600 text-sm font-bold border border-gray-100">
+                  <Calendar className="w-4 h-4 text-blue-500" />
+                  Joined March 2026
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats and Info Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          <div className="lg:col-span-1 space-y-8">
+            {/* Performance Stats */}
+            <div className="bg-gray-900 rounded-[32px] p-8 text-white shadow-xl">
+              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 mb-8">Performance Metrics</h3>
+              <div className="space-y-8">
+                {profileUser.role === 'professor' ? (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Instructor Rating</p>
+                      <p className="text-3xl font-black">{profileUser.rating || '5.0'}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
+                      <Star className="w-6 h-6 text-emerald-400" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Knowledge Points</p>
+                      <p className="text-3xl font-black">{profileUser.points}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center">
+                      <Trophy className="w-6 h-6 text-blue-400" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          <div className="lg:col-span-2 space-y-8">
+            {/* Interaction Card */}
+            {profileUser.role === 'professor' ? (
+              <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[40px] p-10 text-white shadow-2xl shadow-blue-200">
+                <div className="max-w-md">
+                  <h2 className="text-3xl font-black mb-4">Connect with Professor</h2>
+                  <p className="text-blue-100 font-medium mb-8">
+                    Available for mentorship, thesis advising, and research collaboration.
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-10">
+                    <div className="bg-white/10 backdrop-blur-md rounded-3xl p-5 border border-white/10">
+                      <Clock className="w-5 h-5 mb-3 text-blue-200" />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1">Availability</p>
+                      <p className="font-bold text-sm">{officeHoursParsed.length} Slots/Week</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur-md rounded-3xl p-5 border border-white/10">
+                      <MapPin className="w-5 h-5 mb-3 text-blue-200" />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1">Location</p>
+                      <p className="font-bold text-sm">Main Campus / Zoom</p>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => setIsMeetingModalOpen(true)}
+                    className="w-full bg-white text-blue-700 font-black py-4 rounded-2xl shadow-xl hover:scale-[1.02] transition active:scale-[0.98]"
+                  >
+                    Schedule Consultation
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-[40px] p-10 border border-gray-100">
+                <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-3">
+                  <Activity className="w-6 h-6 text-blue-600" />
+                  Recent Contributions
+                </h2>
+                <div className="space-y-6">
+                  {profileUser.stats?.recent_activity?.length ? (
+                    profileUser.stats.recent_activity.map((act: any) => (
+                      <div key={act.id} className="bg-white rounded-3xl p-6 border border-gray-100 flex items-start gap-5 group hover:border-blue-200 transition-all">
+                        <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center group-hover:bg-blue-600 transition-colors">
+                          <MessageCircle className="w-5 h-5 text-blue-600 group-hover:text-white transition-colors" />
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-gray-900 mb-1">{act.title}</h4>
+                          <p className="text-xs text-gray-400 font-bold mb-3">{act.date}</p>
+                          <p className="text-sm text-gray-600 leading-relaxed italic">"{act.detail}"</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-400 font-medium italic">No public contributions recorded yet.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Meeting Modal */}
+        {isMeetingModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md">
+            <div className="bg-white rounded-[40px] w-full max-w-md shadow-2xl p-10 animate-in zoom-in-95 duration-300">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-black text-gray-900 tracking-tight">Request Meeting</h2>
+                <button onClick={() => setIsMeetingModalOpen(false)} className="text-gray-400 hover:text-gray-900 transition-colors p-2">
+                  <Plus className="w-6 h-6 rotate-45" />
+                </button>
+              </div>
+              <div className="space-y-6">
+                <div>
+                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block mb-3">Preferred Time</label>
+                   <select 
+                      className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none"
+                      value={meetingSlot}
+                      onChange={e => setMeetingSlot(e.target.value)}
+                    >
+                      <option value="">Select an office hour slot...</option>
+                      {officeHoursParsed.map((s: any, i: number) => (
+                        <option key={i} value={`${s.day} @ ${s.time}`}>{s.day} at {s.time}</option>
+                      ))}
+                      <option value="Custom time">Custom time (describe in note)</option>
+                    </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block mb-3">Meeting Note</label>
+                  <textarea 
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-medium h-32 resize-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none"
+                    placeholder="Briefly describe the purpose of this meeting..."
+                    value={meetingNote}
+                    onChange={e => setMeetingNote(e.target.value)}
+                  />
+                </div>
+                <button 
+                  onClick={requestMeeting}
+                  disabled={meetingRequested}
+                  className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-[1.02] transition active:scale-[0.98] flex items-center justify-center gap-3"
+                >
+                  {meetingRequested ? <><CheckCircle className="w-5 h-5" /> Request Transmitted</> : <>Send Request <ChevronRight className="w-4 h-4" /></>}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── Default (Own Profile) View ──────────────────────────────
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 pb-12">
       
-      {/* Back button for visiting others */}
-      {!isOwnProfile && (
-        <button 
-          onClick={() => window.history.back()} 
-          className="flex items-center text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors mb-2"
-        >
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back
-        </button>
-      )}
-
       {/* Profile Header */}
       <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm relative overflow-hidden flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-6">
         <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-bl-full -z-0 opacity-50"></div>
         
         <div 
           className="relative z-10 w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-4xl font-black text-blue-700 cursor-pointer hover:scale-105 transition"
-          onClick={() => console.log('Avatar clicked')}
         >
           {profileUser.name.charAt(0)}
         </div>
@@ -171,7 +364,7 @@ export default function Profile() {
             <StatCard icon={<Users />} label="Students" value={profileUser.stats?.managed_students_count || 0} color="blue" />
             <StatCard icon={<BookOpen />} label="Courses" value={profileUser.stats?.total_courses_count || 0} color="indigo" />
             <StatCard icon={<Calendar />} label="Meetings" value={4} color="amber" onClick={() => navigate('/meetings')} />
-            <StatCard icon={<Star />} label="Rating" value="4.9" color="emerald" />
+            <StatCard icon={<Star />} label="Rating" value={profileUser.rating || '5.0'} color="emerald" />
           </>
         )}
       </div>
@@ -184,14 +377,12 @@ export default function Profile() {
             
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-gray-900">Personal Information</h2>
-              {isOwnProfile && (
-                <button
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
-                >
-                  {isEditing ? 'Cancel' : 'Edit'}
-                </button>
-              )}
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+              >
+                {isEditing ? 'Cancel' : 'Edit'}
+              </button>
             </div>
 
             <div className="space-y-4">
@@ -270,7 +461,7 @@ export default function Profile() {
                 <h2 className="text-lg font-bold text-indigo-900 flex items-center">
                   <Clock className="w-5 h-5 mr-2" /> Office Hours
                 </h2>
-                {isOwnProfile && isEditing && (
+                {isEditing && (
                   <button onClick={addOfficeHour} className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
                     <Plus className="w-4 h-4" />
                   </button>
@@ -326,7 +517,7 @@ export default function Profile() {
                   </div>
                 </div>
 
-                {isOwnProfile && isEditing && (
+                {isEditing && (
                   <div className="space-y-3 p-4 bg-white rounded-xl border border-indigo-100">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-bold text-gray-700">Zoom Meetings</span>
@@ -349,110 +540,20 @@ export default function Profile() {
                   </div>
                 )}
 
-                {/* Meeting Link / Request */}
-                {isOwnProfile ? (
-                  <div className="flex mt-4">
-                    <input
-                      type="text"
-                      className="flex-1 bg-white border border-indigo-200 rounded-l-lg px-3 py-2 text-sm text-gray-600 font-medium focus:outline-none"
-                      value={editMeetingLink}
-                      onChange={e => setEditMeetingLink(e.target.value)}
-                      placeholder="Zoom Link (https:// zoom.us/j/...)"
-                    />
-                    <button
-                      onClick={handleSave}
-                      className="bg-indigo-600 text-white px-3 rounded-r-lg hover:bg-indigo-700 transition-colors cursor-pointer"
-                    >
-                      <Save className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2 mt-4">
-                    {profileUser.meeting_link && profileUser.zoom_enabled !== false && (
-                      <a
-                        href={profileUser.meeting_link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block text-center bg-indigo-100 text-indigo-700 font-bold text-sm px-4 py-2 rounded-xl border border-indigo-200 hover:bg-indigo-200 transition-colors"
-                      >
-                        <LinkIcon className="w-4 h-4 inline mr-1.5" /> Join Regular Zoom
-                      </a>
-                    )}
-                    <button
-                      onClick={() => setIsMeetingModalOpen(true)}
-                      className="w-full bg-indigo-600 text-white font-bold text-sm px-4 py-3 rounded-xl shadow-sm hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
-                    >
-                      <Calendar className="w-4 h-4" /> Request Custom Meeting
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Meeting Request Modal */}
-          {isMeetingModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
-              <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-6 animate-in zoom-in-95 duration-200">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold text-gray-900">Request a Meeting</h2>
-                  <button onClick={() => setIsMeetingModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                    <Trash className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="space-y-6">
-                  <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Preferred Slot</label>
-                    <select 
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                      value={meetingSlot}
-                      onChange={e => setMeetingSlot(e.target.value)}
-                    >
-                      <option value="">Select an office hour slot...</option>
-                      {officeHoursParsed.map((s: any, i: number) => (
-                        <option key={i} value={`${s.day} @ ${s.time}`}>{s.day} at {s.time}</option>
-                      ))}
-                      <option value="Custom time">Custom time (describe in note)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Meeting Type</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button 
-                        disabled={profileUser.zoom_enabled === false}
-                        onClick={() => setMeetingType('Zoom')}
-                        className={`flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-bold transition ${meetingType === 'Zoom' ? 'bg-indigo-50 border-indigo-600 text-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'} ${profileUser.zoom_enabled === false ? 'opacity-30 cursor-not-allowed' : ''}`}
-                      >
-                        <Globe className="w-4 h-4" /> Zoom
-                      </button>
-                      <button 
-                        disabled={profileUser.in_person_enabled === false}
-                        onClick={() => setMeetingType('In-person')}
-                        className={`flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-bold transition ${meetingType === 'In-person' ? 'bg-blue-50 border-blue-600 text-blue-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'} ${profileUser.in_person_enabled === false ? 'opacity-30 cursor-not-allowed' : ''}`}
-                      >
-                        <MapPin className="w-4 h-4" /> In-person
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Purpose / Note</label>
-                    <textarea 
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium h-24 resize-none focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                      placeholder="What would you like to discuss?"
-                      value={meetingNote}
-                      onChange={e => setMeetingNote(e.target.value)}
-                    />
-                  </div>
-
-                  <button 
-                    onClick={requestMeeting}
-                    disabled={meetingRequested}
-                    className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2"
+                {/* Meeting Link Edit */}
+                <div className="flex mt-4">
+                  <input
+                    type="text"
+                    className="flex-1 bg-white border border-indigo-200 rounded-l-lg px-3 py-2 text-sm text-gray-600 font-medium focus:outline-none"
+                    value={editMeetingLink}
+                    onChange={e => setEditMeetingLink(e.target.value)}
+                    placeholder="Zoom Link (https:// zoom.us/j/...)"
+                  />
+                  <button
+                    onClick={handleSave}
+                    className="bg-indigo-600 text-white px-3 rounded-r-lg hover:bg-indigo-700 transition-colors cursor-pointer"
                   >
-                    {meetingRequested ? <><CheckCircle className="w-5 h-5" /> Request Sent!</> : 'Send Request'}
+                    <Save className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -460,7 +561,7 @@ export default function Profile() {
           )}
 
           {/* Student Quick Links */}
-          {profileUser.role === 'student' && isOwnProfile && (
+          {profileUser.role === 'student' && (
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100 shadow-sm">
               <h2 className="text-lg font-bold text-blue-900 border-b border-blue-200/50 pb-4 mb-4 flex items-center">
                 <BookOpen className="w-5 h-5 mr-2" /> Quick Links

@@ -50,7 +50,7 @@ const mapDiscussion = (d: any): Discussion => ({
   topicId: d.topicId || d.topic_id,
   upvotes: d.upvotes || 0,
   image: d.image || null,
-  userVote: d.user_vote || 0,
+  userVote: d.userVote !== undefined ? d.userVote : (d.user_vote || 0),
   replyList: (d.replyList || []).map(mapReply),
 });
 
@@ -59,7 +59,7 @@ const mapReply = (r: any): Reply => ({
   authorId: r.authorId || r.author_id,
   upvotes: r.upvotes || 0,
   image: r.image || null,
-  userVote: r.user_vote || 0,
+  userVote: r.userVote !== undefined ? r.userVote : (r.user_vote || 0),
 });
 
 export const useDiscussionStore = create<DiscussionState>((set) => ({

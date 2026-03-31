@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
-import Courses from './pages/Courses';
+import Registrations from './pages/Registrations';
+import MyCourses from './pages/MyCourses';
 import CourseView from './pages/CourseView';
 import ChapterView from './pages/ChapterView';
 import DiscussionThread from './pages/DiscussionThread';
@@ -19,7 +20,8 @@ function App() {
       <Routes>
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
-          <Route path="courses" element={<Courses />} />
+          <Route path="registrations" element={<Registrations />} />
+          <Route path="my-courses" element={<MyCourses />} />
           <Route path="courses/create" element={<CreateCourse />} />
           <Route path="courses/:courseId" element={<CourseView />} />
           <Route path="courses/:courseId/discussions/:discussionId" element={<DiscussionThread />} />
