@@ -29,6 +29,10 @@ export const useCourseStore = create<CourseState>((set) => ({
     try {
       const userId = useAuthStore.getState().user?.id ?? 'u1';
       const response = await fetch(`${API_BASE}/api/courses?user_id=${encodeURIComponent(userId)}`);
+      if (!response.ok) {
+        console.error(`Failed to fetch courses: ${response.status} ${response.statusText}`);
+        return;
+      }
       const data = await response.json();
       set({ courses: data });
     } catch (error) {
@@ -84,6 +88,10 @@ export const useCourseStore = create<CourseState>((set) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
+      if (!response.ok) {
+        console.error(`Failed to update course: ${response.status}`);
+        return;
+      }
       const updated = await response.json();
       set((state) => ({
         courses: state.courses.map(c => c.id === courseId ? { ...c, ...updated } : c)

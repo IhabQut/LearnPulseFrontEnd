@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore, type User } from '../store/authStore';
 import { 
-  User as UserIcon, Mail, Clock, Calendar, Shield, Save, MessageCircle, ArrowLeft, BookOpen, Plus, Trash, Globe, MapPin, CheckCircle, Trophy, Star, Users, TrendingUp, Activity, Beaker, ChevronRight
+  User as UserIcon, Mail, Clock, Calendar, Shield, Save, MessageCircle, ArrowLeft, BookOpen, Plus, Trash, Globe, MapPin, CheckCircle, Trophy, Star, Users, TrendingUp, Activity, ChevronRight, Phone, GraduationCap, Award, Book, Briefcase
 } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { StatCard } from '../components/Dashboard/StatCard';
@@ -19,11 +19,24 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
   const [editBio, setEditBio] = useState('');
+  
+  // Student fields
+  const [editMajor, setEditMajor] = useState('');
+  const [editLevel, setEditLevel] = useState('Undergraduate');
+  const [editGraduationYear, setEditGraduationYear] = useState('');
+  
+  // Professor fields
+  const [editDepartment, setEditDepartment] = useState('');
+  const [editExpertise, setEditExpertise] = useState('');
+  const [editRank, setEditRank] = useState('');
+  const [editOfficeLocation, setEditOfficeLocation] = useState('');
   const [editOfficeHours, setEditOfficeHours] = useState<any[]>([]);
   const [editMeetingLink, setEditMeetingLink] = useState('');
   const [editZoomEnabled, setEditZoomEnabled] = useState(true);
   const [editInPersonEnabled, setEditInPersonEnabled] = useState(true);
+  
   const [saved, setSaved] = useState(false);
 
   // Meeting request state for students
@@ -39,25 +52,42 @@ export default function Profile() {
   useEffect(() => {
     if (!viewUserId) return;
     document.title = profileUser ? `${profileUser.name} | Profile` : 'Profile | LearnPulse';
-    if (isOwnProfile && currentUser) {
-      setProfileUser(currentUser);
-      setEditName(currentUser.name);
-      setEditEmail(currentUser.email || `${currentUser.name.toLowerCase().replace(' ', '.')}@university.edu`);
-      setEditBio(currentUser.bio || '');
-      try {
-        setEditOfficeHours(JSON.parse(currentUser.office_hours || '[]'));
-      } catch {
-        setEditOfficeHours([]);
+    
+    const initProfile = (data: User) => {
+      setProfileUser(data);
+      setEditName(data.name);
+      setEditEmail(data.email || '');
+      setEditPhone(data.phone_number || '');
+      setEditBio(data.bio || '');
+      
+      if (data.role === 'student' && data.student) {
+        setEditMajor(data.student.major);
+        setEditLevel(data.student.level);
+        setEditGraduationYear(data.student.graduation_year?.toString() || '');
+      } else if (data.role === 'professor' && data.professor) {
+        setEditDepartment(data.professor.department);
+        setEditExpertise(data.professor.expertise);
+        setEditRank(data.professor.academic_rank);
+        setEditOfficeLocation(data.professor.office_location);
+        setEditMeetingLink(data.professor.meeting_link);
+        setEditZoomEnabled(data.professor.zoom_enabled !== false);
+        setEditInPersonEnabled(data.professor.in_person_enabled !== false);
+        try {
+          setEditOfficeHours(JSON.parse(data.professor.office_hours || '[]'));
+        } catch {
+          setEditOfficeHours([]);
+        }
       }
-      setEditMeetingLink(currentUser.meeting_link || '');
-      setEditZoomEnabled(currentUser.zoom_enabled !== false);
-      setEditInPersonEnabled(currentUser.in_person_enabled !== false);
+    };
+
+    if (isOwnProfile && currentUser) {
+      initProfile(currentUser);
     } else {
       setLoading(true);
       fetch(`${API_BASE}/api/profile/${viewUserId}`)
         .then(r => r.json())
         .then(data => {
-          setProfileUser(data);
+          initProfile(data);
           setLoading(false);
         })
         .catch(() => setLoading(false));
@@ -73,18 +103,33 @@ export default function Profile() {
   
   if (!profileUser) return <div className="text-center py-20 text-gray-500 font-medium font-black uppercase tracking-widest">Profile not found.</div>;
 
-  const officeHoursParsed = profileUser.office_hours ? (() => {
-    try { return JSON.parse(profileUser.office_hours); } catch { return []; }
+  const officeHoursParsed = profileUser.professor?.office_hours ? (() => {
+    try { return JSON.parse(profileUser.professor.office_hours); } catch { return []; }
   })() : [];
 
   const handleSave = async () => {
-    const data: any = { name: editName, email: editEmail, bio: editBio };
+    const data: any = { 
+      name: editName, 
+      email: editEmail, 
+      phone_number: editPhone,
+      bio: editBio 
+    };
+    
     if (currentUser?.role === 'professor') {
+      data.department = editDepartment;
+      data.expertise = editExpertise;
+      data.academic_rank = editRank;
+      data.office_location = editOfficeLocation;
       data.office_hours = JSON.stringify(editOfficeHours);
       data.meeting_link = editMeetingLink;
       data.zoom_enabled = editZoomEnabled;
       data.in_person_enabled = editInPersonEnabled;
+    } else {
+      data.major = editMajor;
+      data.level = editLevel;
+      data.graduation_year = parseInt(editGraduationYear) || null;
     }
+
     await updateProfile(data);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -163,20 +208,35 @@ export default function Profile() {
                 }`}>
                   {profileUser.role} Account
                 </span>
+                {profileUser.role === 'student' && profileUser.student?.level && (
+                  <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border bg-purple-50 border-purple-100 text-purple-700">
+                    {profileUser.student.level}
+                  </span>
+                )}
               </div>
               <p className="text-lg text-gray-500 font-medium max-w-2xl mb-8 leading-relaxed">
                 {profileUser.bio || `A dedicated ${profileUser.role} at LearnPulse University, contributing to the future of AI-powered education.`}
               </p>
               
               <div className="flex flex-wrap justify-center md:justify-start gap-4">
-                <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl text-gray-600 text-sm font-bold border border-gray-100">
-                  <Mail className="w-4 h-4 text-blue-500" />
-                  {profileUser.email || 'Contact via portal'}
-                </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl text-gray-600 text-sm font-bold border border-gray-100">
-                  <Calendar className="w-4 h-4 text-blue-500" />
-                  Joined March 2026
-                </div>
+                {profileUser.email && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl text-gray-600 text-sm font-bold border border-gray-100">
+                    <Mail className="w-4 h-4 text-blue-500" />
+                    {profileUser.email}
+                  </div>
+                )}
+                {profileUser.role === 'professor' && profileUser.professor?.department && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl text-gray-600 text-sm font-bold border border-gray-100">
+                    <Briefcase className="w-4 h-4 text-blue-500" />
+                    {profileUser.professor.department}
+                  </div>
+                )}
+                {profileUser.role === 'student' && profileUser.student?.major && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl text-gray-600 text-sm font-bold border border-gray-100">
+                    <Book className="w-4 h-4 text-blue-500" />
+                    {profileUser.student.major}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -191,29 +251,88 @@ export default function Profile() {
               <h3 className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 mb-8">Performance Metrics</h3>
               <div className="space-y-8">
                 {profileUser.role === 'professor' ? (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Instructor Rating</p>
-                      <p className="text-3xl font-black">{profileUser.rating || '5.0'}</p>
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Instructor Rating</p>
+                        <p className="text-3xl font-black">{profileUser.rating || '5.0'}</p>
+                      </div>
+                      <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
+                        <Star className="w-6 h-6 text-emerald-400" />
+                      </div>
                     </div>
-                    <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
-                      <Star className="w-6 h-6 text-emerald-400" />
-                    </div>
-                  </div>
+                    {profileUser.professor?.academic_rank && (
+                      <div className="pt-4 border-t border-white/5">
+                        <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Academic Rank</p>
+                        <p className="text-lg font-extrabold">{profileUser.professor.academic_rank}</p>
+                      </div>
+                    )}
+                  </>
                 ) : (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Knowledge Points</p>
-                      <p className="text-3xl font-black">{profileUser.points}</p>
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Knowledge Points</p>
+                        <p className="text-3xl font-black">{profileUser.student?.points || 0}</p>
+                      </div>
+                      <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center">
+                        <Trophy className="w-6 h-6 text-blue-400" />
+                      </div>
                     </div>
-                    <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center">
-                      <Trophy className="w-6 h-6 text-blue-400" />
-                    </div>
-                  </div>
+                    {profileUser.student?.gpa !== undefined && (
+                      <div className="pt-4 border-t border-white/5">
+                        <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Current GPA</p>
+                        <p className="text-lg font-extrabold">{profileUser.student.gpa.toFixed(2)}</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
 
+            {/* Specialized Details Card */}
+            <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm">
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-6">Details</h3>
+                <div className="space-y-5">
+                    {profileUser.role === 'professor' ? (
+                        <>
+                            {profileUser.professor?.expertise && (
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1 leading-none">Research Expertise</p>
+                                    <p className="text-sm font-bold text-gray-700">{profileUser.professor.expertise}</p>
+                                </div>
+                            )}
+                            {profileUser.professor?.office_location && (
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1 leading-none">Office Location</p>
+                                    <p className="text-sm font-bold text-gray-700">{profileUser.professor.office_location}</p>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            {profileUser.student?.level && (
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1 leading-none">Academic Level</p>
+                                    <p className="text-sm font-bold text-gray-700">{profileUser.student.level}</p>
+                                </div>
+                            )}
+                            {profileUser.student?.graduation_year && (
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1 leading-none">Class Of</p>
+                                    <p className="text-sm font-bold text-gray-700">{profileUser.student.graduation_year}</p>
+                                </div>
+                            )}
+                        </>
+                    )}
+                    {profileUser.phone_number && (
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1 leading-none">Contact Number</p>
+                            <p className="text-sm font-bold text-gray-700">{profileUser.phone_number}</p>
+                        </div>
+                    )}
+                </div>
+            </div>
           </div>
 
           <div className="lg:col-span-2 space-y-8">
@@ -341,9 +460,21 @@ export default function Profile() {
         
         <div className="relative z-10 flex-1">
           <h1 className="text-3xl font-extrabold text-gray-900 mb-1 tracking-tight">{profileUser.name}</h1>
-          <p className="text-gray-500 font-medium capitalize flex items-center justify-center md:justify-start mb-2">
-            <Shield className="w-4 h-4 mr-1.5 text-blue-500" /> {profileUser.role} Account
-          </p>
+          <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-2">
+            <span className="text-gray-500 font-medium capitalize flex items-center">
+              <Shield className="w-4 h-4 mr-1.5 text-blue-500" /> {profileUser.role} Account
+            </span>
+            {profileUser.role === 'student' && profileUser.student?.level && (
+              <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md font-bold border border-emerald-100">
+                {profileUser.student.level}
+              </span>
+            )}
+            {profileUser.role === 'professor' && profileUser.professor?.academic_rank && (
+              <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md font-bold border border-blue-100">
+                {profileUser.professor.academic_rank}
+              </span>
+            )}
+          </div>
           {profileUser.bio && (
             <p className="text-sm text-gray-600 mb-4 max-w-lg">{profileUser.bio}</p>
           )}
@@ -354,7 +485,7 @@ export default function Profile() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
         {profileUser.role === 'student' ? (
           <>
-            <StatCard icon={<Trophy />} label="Points" value={profileUser.points} color="amber" />
+            <StatCard icon={<Trophy />} label="Points" value={profileUser.student?.points || 0} color="amber" />
             <StatCard icon={<CheckCircle />} label="Topics" value={profileUser.stats?.completed_topics_count || 0} color="emerald" />
             <StatCard icon={<TrendingUp />} label="Avg Score" value={`${profileUser.stats?.average_quiz_score || 0}%`} color="blue" />
             <StatCard icon={<BookOpen />} label="Courses" value={profileUser.stats?.courses_enrolled_count || 0} color="indigo" />
@@ -394,7 +525,7 @@ export default function Profile() {
                   {isEditing ? (
                     <input
                       type="text"
-                      className="font-semibold text-gray-900 bg-transparent border border-gray-300 rounded-xl px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full"
+                      className="font-semibold text-gray-900 bg-transparent border border-gray-300 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full"
                       value={editName}
                       onChange={e => setEditName(e.target.value)}
                     />
@@ -412,12 +543,31 @@ export default function Profile() {
                   {isEditing ? (
                     <input
                       type="email"
-                      className="font-semibold text-gray-900 bg-transparent border border-gray-300 rounded-xl px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full"
+                      className="font-semibold text-gray-900 bg-transparent border border-gray-300 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full"
                       value={editEmail}
                       onChange={e => setEditEmail(e.target.value)}
                     />
                   ) : (
                     <span className="font-semibold text-gray-900">{editEmail}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Phone Number</label>
+                <div className="flex items-center mt-1">
+                  <Phone className="w-5 h-5 text-gray-400 mr-2" />
+                  {isEditing ? (
+                    <input
+                      type="tel"
+                      className="font-semibold text-gray-900 bg-transparent border border-gray-300 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full"
+                      placeholder="+1-555-0000"
+                      value={editPhone}
+                      onChange={e => setEditPhone(e.target.value)}
+                    />
+                  ) : (
+                    <span className="font-semibold text-gray-900">{editPhone || 'Not set'}</span>
                   )}
                 </div>
               </div>
@@ -443,12 +593,93 @@ export default function Profile() {
             {isEditing && (
               <button
                 onClick={handleSave}
-                className="mt-6 w-full flex items-center justify-center bg-indigo-600 text-white font-bold py-2.5 rounded-xl shadow-sm hover:bg-indigo-700 transition"
+                className="mt-6 w-full flex items-center justify-center bg-indigo-600 text-white font-black py-3 rounded-xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition"
               >
                 <Save className="w-4 h-4 mr-2" /> {saved ? 'Saved ✓' : 'Save Changes'}
               </button>
             )}
           </div>
+
+          {/* Specialized Info Card (Edit Mode) */}
+          {isEditing && (
+            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm animate-in slide-in-from-bottom-2">
+                <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    {profileUser.role === 'student' ? <GraduationCap className="w-5 h-5 text-emerald-600" /> : <Award className="w-5 h-5 text-blue-600" />}
+                    {profileUser.role === 'student' ? 'Academic Details' : 'Professional Details'}
+                </h2>
+                <div className="space-y-4">
+                    {profileUser.role === 'student' ? (
+                        <>
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Major / Specialization</label>
+                                <input 
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+                                    value={editMajor}
+                                    onChange={e => setEditMajor(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Academic Level</label>
+                                <select 
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+                                    value={editLevel}
+                                    onChange={e => setEditLevel(e.target.value)}
+                                >
+                                    <option>Undergraduate</option>
+                                    <option>Graduate</option>
+                                    <option>PhD</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Graduation Year</label>
+                                <input 
+                                    type="number"
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+                                    value={editGraduationYear}
+                                    onChange={e => setEditGraduationYear(e.target.value)}
+                                />
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Department</label>
+                                <input 
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                    value={editDepartment}
+                                    onChange={e => setEditDepartment(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Academic Rank</label>
+                                <input 
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                    value={editRank}
+                                    onChange={e => setEditRank(e.target.value)}
+                                    placeholder="Associate Professor, etc."
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Expertise</label>
+                                <input 
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                    value={editExpertise}
+                                    onChange={e => setEditExpertise(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Office Location</label>
+                                <input 
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                    value={editOfficeLocation}
+                                    onChange={e => setEditOfficeLocation(e.target.value)}
+                                />
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+          )}
         </div>
 
         {/* Right Column */}
@@ -509,10 +740,10 @@ export default function Profile() {
               {/* Meeting Options */}
               <div className="space-y-4 pt-4 border-t border-indigo-200/30">
                 <div className="flex flex-wrap gap-2">
-                  <div className={`flex items-center px-3 py-1.5 rounded-full border text-xs font-bold transition ${profileUser.zoom_enabled !== false ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
+                  <div className={`flex items-center px-3 py-1.5 rounded-full border text-xs font-bold transition ${profileUser.professor?.zoom_enabled !== false ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
                     <Globe className="w-3.5 h-3.5 mr-1.5" /> Zoom Available
                   </div>
-                  <div className={`flex items-center px-3 py-1.5 rounded-full border text-xs font-bold transition ${profileUser.in_person_enabled !== false ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
+                  <div className={`flex items-center px-3 py-1.5 rounded-full border text-xs font-bold transition ${profileUser.professor?.in_person_enabled !== false ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
                     <MapPin className="w-3.5 h-3.5 mr-1.5" /> In-person Available
                   </div>
                 </div>

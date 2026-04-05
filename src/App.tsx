@@ -13,9 +13,11 @@ import AIAnalysis from './pages/AIAnalysis';
 import Meetings from './pages/Meetings';
 import Notifications from './pages/Notifications';
 import CreateCourse from './pages/CreateCourse';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
   return (
+    <ErrorBoundary>
     <Router>
       <Routes>
         <Route path="/" element={<MainLayout />}>
@@ -38,6 +40,7 @@ function App() {
         </Route>
       </Routes>
     </Router>
+    </ErrorBoundary>
   );
 }
 

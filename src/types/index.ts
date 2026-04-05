@@ -22,12 +22,14 @@ export type Material = {
 export type Course = {
   id: string;
   title: string;
-  instructorName?: string;
   professor_id?: string;
+  professor_name?: string;
   description: string;
-  category: string;
-  image: string | null;
-  is_open: boolean;
+  category?: string;
+  image?: string | null;
+  is_open?: boolean;
+  student_count?: number;
+  user_role?: string;
   chapters: Chapter[];
   materials: Material[];
 };

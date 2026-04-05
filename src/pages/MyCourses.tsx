@@ -39,9 +39,13 @@ export default function MyCourses() {
     if (!user) return [];
     
     return courses.filter(c => {
-      const isMine = user.role === 'professor' 
-        ? c.professor_id === user.id 
-        : enrollments.includes(c.id);
+      // If user_role is present (from backend), use it. 
+      // Otherwise fallback to global role if they are the owner.
+      const hasCourseRole = !!c.user_role;
+      const isOwner = user.role === 'professor' && c.professor_id === user.id;
+      const isEnrolled = enrollments.includes(c.id);
+      
+      const isMine = hasCourseRole || isOwner || isEnrolled;
         
       const matchesSearch = c.title.toLowerCase().includes(search.toLowerCase()) || 
                            c.description.toLowerCase().includes(search.toLowerCase());
@@ -100,8 +104,15 @@ export default function MyCourses() {
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600" />
                     )}
-                    <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow-sm border border-white/20">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-blue-700">{course.category}</span>
+                    <div className="absolute top-3 left-3 flex gap-2">
+                       <div className="bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow-sm border border-white/20">
+                         <span className="text-[9px] font-black uppercase tracking-widest text-blue-700">{course.category}</span>
+                       </div>
+                       {course.user_role && (
+                         <div className="bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded-lg shadow-sm border border-white/10">
+                           <span className="text-[9px] font-black uppercase tracking-widest text-white">{course.user_role}</span>
+                         </div>
+                       )}
                     </div>
                   </div>
 

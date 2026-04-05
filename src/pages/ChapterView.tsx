@@ -426,14 +426,14 @@ export default function ChapterView() {
             </p>
           </div>
           <Link 
-             to={allTopicsCompleted ? `/courses/${course.id}/chapters/${chapter.id}/quiz?from=${encodeURIComponent(window.location.pathname)}` : "#"}
+             to={allTopicsCompleted && course.user_role !== 'viewer' ? `/courses/${course.id}/chapters/${chapter.id}/quiz?from=${encodeURIComponent(window.location.pathname)}` : "#"}
              className={`px-8 py-3.5 rounded-xl font-bold text-lg shadow-sm transition-all flex items-center ${
-               allTopicsCompleted 
+               allTopicsCompleted && course.user_role !== 'viewer'
                  ? 'bg-white text-indigo-700 hover:bg-indigo-50 hover:shadow-md hover:-translate-y-0.5' 
                  : 'bg-gray-200 text-gray-400 cursor-not-allowed pointer-events-none'
              }`}
           >
-            Start Quiz
+            {course.user_role === 'viewer' ? 'View Only Mode' : 'Start Quiz'}
             <ChevronRight className="w-5 h-5 ml-2" />
           </Link>
           {user?.role === 'professor' && (

@@ -7,12 +7,12 @@ import { useCourseStore } from '../store/courseStore';
 import { API_BASE } from '../lib/api';
 import { useDebounce } from '../hooks/useDebounce';
 
-type Tab = 'chapters' | 'materials' | 'discussions' | 'leaderboard' | 'quizzes' | 'students' | 'ai-insights';
+type Tab = 'chapters' | 'materials' | 'discussions' | 'leaderboard' | 'quizzes' | 'users' | 'ai-insights';
 
 type LeaderboardEntry = { rank: number; student: string; points: number; id: string; };
 type QuizInfo = { id: string; title: string; quiz_type: string; topic_id?: string; chapter_id?: string; questions: any[]; };
 
-type EnrolledStudent = {
+type EnrolledUser = {
   id: string;
   name: string;
   email: string;
@@ -20,6 +20,8 @@ type EnrolledStudent = {
   totalTopics: number;
   points: number;
   joinedAt: string;
+  role: string;
+  enrollment_id: string;
 };
 
 export default function CourseView() {
@@ -45,22 +47,23 @@ export default function CourseView() {
   const [aiReport, setAiReport] = useState<any>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  // Students tab state
-  const [students, setStudents] = useState<EnrolledStudent[]>([]);
-  const [studentsLoading, setStudentsLoading] = useState(false);
-  const [studentsError, setStudentsError] = useState<string | null>(null);
-  const [studentSearch, setStudentSearch] = useState('');
-  const debouncedStudentSearch = useDebounce(studentSearch, 300);
-  const [enrollStudentId, setEnrollStudentId] = useState('');
+  // Users tab state
+  const [users, setUsers] = useState<EnrolledUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  const [userSearch, setUserSearch] = useState('');
+  const debouncedUserSearch = useDebounce(userSearch, 300);
+  const [enrollUserId, setEnrollUserId] = useState('');
   const [enrolling, setEnrolling] = useState(false);
   const [unenrollConfirm, setUnenrollConfirm] = useState<string | null>(null);
   const [unenrolling, setUnenrolling] = useState(false);
+  const [updatingRole, setUpdatingRole] = useState<string | null>(null);
 
 
 
   // Pagination States
   const [leaderboardPage, setLeaderboardPage] = useState(1);
-  const [studentsPage, setStudentsPage] = useState(1);
+  const [usersPage, setUsersPage] = useState(1);
   const [discussionsPage, setDiscussionsPage] = useState(1);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
@@ -90,23 +93,23 @@ export default function CourseView() {
       .catch(console.error);
   }, [course?.id]);
 
-  // Fetch students and pending requests when Students tab is opened (professor only)
+  // Fetch users and pending requests when Users tab is opened (professor only)
   useEffect(() => {
-    if (activeTab !== 'students' || !course || user?.role !== 'professor') return;
-    setStudentsLoading(true);
-    setStudentsError(null);
+    if (activeTab !== 'users' || !course || user?.role !== 'professor') return;
+    setUsersLoading(true);
+    setUsersError(null);
     
-    // Fetch Enrolled Students
+    // Fetch Enrolled Users
     fetch(`${API_BASE}/api/courses/${course.id}/students`)
       .then(r => r.json())
-      .then(setStudents)
+      .then(setUsers)
       .catch(console.error);
 
     // Fetch Pending Requests
     fetch(`${API_BASE}/api/courses/${course.id}/enrollment-requests`)
       .then(r => r.json())
       .then(setPendingRequests)
-      .finally(() => setStudentsLoading(false));
+      .finally(() => setUsersLoading(false));
   }, [activeTab, course?.id, user?.role]);
 
   useEffect(() => {
@@ -130,36 +133,56 @@ export default function CourseView() {
     });
   }, [activeTab, course?.id, user?.role]);
 
-  const handleUnenroll = async (studentId: string) => {
+  const handleUnenroll = async (userId: string) => {
     if (!course) return;
     setUnenrolling(true);
     try {
-      await fetch(`${API_BASE}/api/courses/${course.id}/students/${studentId}`, { method: 'DELETE' });
-      setStudents(prev => prev.filter(s => s.id !== studentId));
+      await fetch(`${API_BASE}/api/courses/${course.id}/students/${userId}`, { method: 'DELETE' });
+      setUsers(prev => prev.filter(u => u.id !== userId));
     } catch (err) {
-      console.error('Failed to unenroll student:', err);
+      console.error('Failed to unenroll user:', err);
     } finally {
       setUnenrolling(false);
       setUnenrollConfirm(null);
     }
   };
 
-  const handleEnrollStudent = async (e: React.FormEvent) => {
+  const handleUpdateRole = async (enrollment_id: string, newRole: string) => {
+    setUpdatingRole(enrollment_id);
+    try {
+      const res = await fetch(`${API_BASE}/api/enrollments/${enrollment_id}/role`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole })
+      });
+      if (res.ok) {
+        setUsers(prev => prev.map(u => u.enrollment_id === enrollment_id ? { ...u, role: newRole } : u));
+      } else {
+        alert('Failed to update role');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUpdatingRole(null);
+    }
+  };
+
+  const handleEnrollUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!course || !enrollStudentId.trim()) return;
+    if (!course || !enrollUserId.trim()) return;
     setEnrolling(true);
     try {
       const res = await fetch(`${API_BASE}/api/courses/${course.id}/enroll-student`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: enrollStudentId })
+        body: JSON.stringify({ user_id: enrollUserId })
       });
       if (res.ok) {
-        setEnrollStudentId('');
+        setEnrollUserId('');
         const refreshed = await fetch(`${API_BASE}/api/courses/${course.id}/students`).then(r => r.json());
-        setStudents(refreshed);
+        setUsers(refreshed);
       } else {
-        alert('Failed to enroll student. Please check the user ID.');
+        alert('Failed to enroll user. Please check the user ID.');
       }
     } catch (err) {
       console.error(err);
@@ -172,7 +195,7 @@ export default function CourseView() {
     await fetch(`${API_BASE}/api/enrollments/${requestId}/approve`, { method: 'POST' });
     setPendingRequests(prev => prev.filter(r => r.id !== requestId));
     const refreshed = await fetch(`${API_BASE}/api/courses/${course?.id}/students`).then(r => r.json());
-    setStudents(refreshed);
+    setUsers(refreshed);
   };
 
   const handleRejectRequest = async (requestId: string) => {
@@ -208,14 +231,14 @@ export default function CourseView() {
     await updateCourse(course.id, { is_open: !course.is_open });
   };
 
-  const filteredStudents = students.filter(s =>
-    s.name.toLowerCase().includes(debouncedStudentSearch.toLowerCase()) ||
-    s.email.toLowerCase().includes(debouncedStudentSearch.toLowerCase())
+  const filteredUsers = users.filter(u =>
+    u.name.toLowerCase().includes(debouncedUserSearch.toLowerCase()) ||
+    u.email.toLowerCase().includes(debouncedUserSearch.toLowerCase())
   );
 
   const ITEMS_PER_PAGE = 10;
   const pagedLeaderboard = leaderboard.slice((leaderboardPage - 1) * ITEMS_PER_PAGE, leaderboardPage * ITEMS_PER_PAGE);
-  const pagedStudents = filteredStudents.slice((studentsPage - 1) * ITEMS_PER_PAGE, studentsPage * ITEMS_PER_PAGE);
+  const pagedUsers = filteredUsers.slice((usersPage - 1) * ITEMS_PER_PAGE, usersPage * ITEMS_PER_PAGE);
   const pagedDiscussions = courseDiscussions.slice(0, discussionsPage * ITEMS_PER_PAGE);
 
   const handleAddChapter = async () => {
@@ -287,7 +310,7 @@ export default function CourseView() {
     { id: 'quizzes', label: 'Quizzes', icon: ClipboardList },
     { id: 'discussions', label: 'Discussions', icon: MessageSquare },
     { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
-    { id: 'students', label: 'Students', icon: Users, professorOnly: true },
+    { id: 'users', label: 'Users', icon: Users, professorOnly: true },
     { id: 'ai-insights', label: 'AI Insights', icon: TrendingUp, professorOnly: true },
   ];
 
@@ -334,7 +357,7 @@ export default function CourseView() {
               <h1 className="text-3xl font-extrabold text-gray-900 mb-3 tracking-tight">{course.title}</h1>
               <p className="text-gray-600 max-w-2xl text-lg mb-4">{course.description}</p>
               <p className="text-sm text-gray-500 font-medium">
-                Instructor: <Link to={`/profile/${course.professor_id}`} className="text-blue-600 hover:text-blue-800 hover:underline font-bold">{course.instructorName}</Link>
+                Instructor: <Link to={`/profile/${course.professor_id}`} className="text-blue-600 hover:text-blue-800 hover:underline font-bold">{course.professor_name || 'Instructor'}</Link>
               </p>
             </div>
           </div>
@@ -836,7 +859,7 @@ export default function CourseView() {
         )}
 
         {/* Enrollment Management Dialog (Professor Only) */}
-        {activeTab === 'students' && user?.role === 'professor' && (
+        {activeTab === 'users' && user?.role === 'professor' && (
           <div className="space-y-10 animate-in slide-in-from-bottom-2 duration-300">
             {/* Enrollment Controls */}
             <div className="bg-gray-50 rounded-[32px] p-8 border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
@@ -847,7 +870,7 @@ export default function CourseView() {
                 <div>
                   <h3 className="text-xl font-black text-gray-900">Enrollment Status</h3>
                   <p className="text-sm font-medium text-gray-500">
-                    {course.is_open ? 'Course is currently accepting new student join requests.' : 'Course is closed. Students cannot request to join.'}
+                    {course.is_open ? 'Course is currently accepting new join requests.' : 'Course is closed. Users cannot request to join.'}
                   </p>
                 </div>
               </div>
@@ -882,7 +905,7 @@ export default function CourseView() {
                         </div>
                         <div>
                           <p className="font-bold text-gray-900">{req.user_name || req.user_id}</p>
-                          <p className="text-xs text-gray-400 font-medium">{req.user_email || 'Student'}</p>
+                          <p className="text-xs text-gray-400 font-medium">{req.user_email || 'User'}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -910,30 +933,30 @@ export default function CourseView() {
             {/* Header row */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Enrolled Students</h2>
-                {!studentsLoading && !studentsError && (
+                <h2 className="text-xl font-bold text-gray-900">Enrolled Users</h2>
+                {!usersLoading && !usersError && (
                   <p className="text-sm text-gray-500 font-medium mt-0.5">
-                    {students.length} student{students.length !== 1 ? 's' : ''} enrolled in this course
+                    {users.length} user{users.length !== 1 ? 's' : ''} enrolled in this course
                   </p>
                 )}
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3">
                 {/* Enroll Form */}
-                <form onSubmit={handleEnrollStudent} className="flex gap-2">
+                <form onSubmit={handleEnrollUser} className="flex gap-2">
                   <input
                     type="text"
-                    value={enrollStudentId}
-                    onChange={e => setEnrollStudentId(e.target.value)}
-                    placeholder="Enter User ID (e.g. u1)"
+                    value={enrollUserId}
+                    onChange={e => setEnrollUserId(e.target.value)}
+                    placeholder="Enter User ID"
                     className="w-full sm:w-48 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
                     type="submit"
-                    disabled={enrolling || !enrollStudentId.trim()}
+                    disabled={enrolling || !enrollUserId.trim()}
                     className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
                   >
-                    {enrolling ? '...' : '+ Add Student'}
+                    {enrolling ? '...' : '+ Add User'}
                   </button>
                 </form>
 
@@ -942,9 +965,9 @@ export default function CourseView() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type="text"
-                    value={studentSearch}
-                    onChange={e => setStudentSearch(e.target.value)}
-                    placeholder="Search students..."
+                    value={userSearch}
+                    onChange={e => setUserSearch(e.target.value)}
+                    placeholder="Search users..."
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
                   />
                 </div>
@@ -952,7 +975,7 @@ export default function CourseView() {
             </div>
 
             {/* Summary stat cards */}
-            {!studentsLoading && !studentsError && students.length > 0 && (
+            {!usersLoading && !usersError && users.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {/* Total enrolled */}
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center gap-3">
@@ -960,7 +983,7 @@ export default function CourseView() {
                     <Users className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-black text-blue-700">{students.length}</p>
+                    <p className="text-2xl font-black text-blue-700">{users.length}</p>
                     <p className="text-xs font-bold text-blue-500 uppercase tracking-wide">Enrolled</p>
                   </div>
                 </div>
@@ -974,7 +997,7 @@ export default function CourseView() {
                     <p className="text-2xl font-black text-emerald-700">
                       {totalTopics > 0
                         ? Math.round(
-                          students.reduce((sum, s) => sum + (s.completedTopics / (totalTopics || 1)) * 100, 0) / students.length
+                          users.reduce((sum, s) => sum + (s.completedTopics / (totalTopics || 1)) * 100, 0) / users.length
                         )
                         : 0}%
                     </p>
@@ -989,7 +1012,7 @@ export default function CourseView() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-2xl font-black text-amber-700 truncate">
-                      {[...students].sort((a, b) => b.points - a.points)[0]?.name.split(' ')[0] ?? '—'}
+                      {[...users].sort((a, b) => b.points - a.points)[0]?.name.split(' ')[0] ?? '—'}
                     </p>
                     <p className="text-xs font-bold text-amber-500 uppercase tracking-wide">Top Scorer</p>
                   </div>
@@ -998,20 +1021,20 @@ export default function CourseView() {
             )}
 
             {/* Loading state */}
-            {studentsLoading && (
+            {usersLoading && (
               <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-3">
                 <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-                <p className="text-sm font-medium">Loading students...</p>
+                <p className="text-sm font-medium">Loading users...</p>
               </div>
             )}
 
             {/* Error state */}
-            {studentsError && !studentsLoading && (
+            {usersError && !usersLoading && (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                 <div className="p-4 bg-red-50 rounded-full">
                   <Users className="w-8 h-8 text-red-400" />
                 </div>
-                <p className="text-sm font-bold text-red-600">{studentsError}</p>
+                <p className="text-sm font-bold text-red-600">{usersError}</p>
                 <button
                   onClick={() => setActiveTab('chapters')}
                   className="text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors"
@@ -1021,24 +1044,24 @@ export default function CourseView() {
               </div>
             )}
 
-            {/* Empty state (after load, no students) */}
-            {!studentsLoading && !studentsError && students.length === 0 && (
+            {/* Empty state (after load, no users) */}
+            {!usersLoading && !usersError && users.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                 <div className="p-4 bg-gray-100 rounded-full">
                   <Users className="w-8 h-8 text-gray-400" />
                 </div>
-                <p className="text-base font-bold text-gray-700">No students enrolled yet</p>
-                <p className="text-sm text-gray-500">Students will appear here once they join this course.</p>
+                <p className="text-base font-bold text-gray-700">No users enrolled yet</p>
+                <p className="text-sm text-gray-500">Users will appear here once they join this course.</p>
               </div>
             )}
 
             {/* No search results */}
-            {!studentsLoading && !studentsError && students.length > 0 && filteredStudents.length === 0 && (
+            {!usersLoading && !usersError && users.length > 0 && filteredUsers.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
                 <Search className="w-8 h-8 text-gray-300" />
-                <p className="text-sm font-bold text-gray-500">No students match "{studentSearch}"</p>
+                <p className="text-sm font-bold text-gray-500">No users match "{userSearch}"</p>
                 <button
-                  onClick={() => setStudentSearch('')}
+                  onClick={() => setUserSearch('')}
                   className="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors"
                 >
                   Clear search
@@ -1046,22 +1069,23 @@ export default function CourseView() {
               </div>
             )}
 
-            {/* Student table */}
-            {!studentsLoading && !studentsError && filteredStudents.length > 0 && (
+            {/* User table */}
+            {!usersLoading && !usersError && filteredUsers.length > 0 && (
               <div className="overflow-hidden border border-gray-200 rounded-2xl">
                 <table className="w-full text-left text-sm text-gray-600">
                   <thead className="bg-gray-50 border-b border-gray-200 text-gray-700 uppercase text-xs font-black tracking-wider">
                     <tr>
-                      <th className="px-6 py-4">Student</th>
+                      <th className="px-6 py-4">User</th>
+                      <th className="px-6 py-4">Role</th>
                       <th className="px-6 py-4 hidden sm:table-cell">Progress</th>
                       <th className="px-6 py-4 text-right hidden md:table-cell">Points</th>
                       <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {pagedStudents.map(student => {
+                    {pagedUsers.map(enrolledUser => {
                       const progressPct = totalTopics > 0
-                        ? Math.round((student.completedTopics / totalTopics) * 100)
+                        ? Math.round((enrolledUser.completedTopics / totalTopics) * 100)
                         : 0;
                       const progressColor =
                         progressPct === 100 ? 'bg-emerald-500' :
@@ -1070,21 +1094,42 @@ export default function CourseView() {
                               'bg-gray-200';
 
                       return (
-                        <tr key={student.id} className="hover:bg-gray-50 transition-colors">
-                          {/* Student info */}
+                        <tr key={enrolledUser.id} className="hover:bg-gray-50 transition-colors">
+                          {/* User info */}
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center text-sm font-bold text-indigo-700 shrink-0">
-                                {student.name.charAt(0).toUpperCase()}
+                                {enrolledUser.name.charAt(0).toUpperCase()}
                               </div>
                               <div className="min-w-0">
-                                <Link to={`/profile/${student.id}`} className="block font-bold text-gray-900 hover:text-blue-600 hover:underline truncate">{student.name}</Link>
+                                <Link to={`/profile/${enrolledUser.id}`} className="block font-bold text-gray-900 hover:text-blue-600 hover:underline truncate">{enrolledUser.name}</Link>
                                 <p className="text-xs text-gray-400 font-medium flex items-center gap-1 truncate">
                                   <Mail className="w-3 h-3 shrink-0" />
-                                  {student.email}
+                                  {enrolledUser.email}
                                 </p>
                               </div>
                             </div>
+                          </td>
+
+                          {/* Role selector */}
+                          <td className="px-6 py-4">
+                            {user?.id === course.professor_id ? (
+                              <select
+                                value={enrolledUser.role}
+                                disabled={updatingRole === enrolledUser.enrollment_id || enrolledUser.role === 'owner'}
+                                onChange={(e) => handleUpdateRole(enrolledUser.enrollment_id, e.target.value)}
+                                className="bg-white border border-gray-200 text-xs font-bold rounded-lg px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50"
+                              >
+                                <option value="owner">Owner</option>
+                                <option value="instructor">Instructor</option>
+                                <option value="student">Student</option>
+                                <option value="viewer">Viewer</option>
+                              </select>
+                            ) : (
+                              <span className="text-xs font-black uppercase tracking-widest text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
+                                {enrolledUser.role}
+                              </span>
+                            )}
                           </td>
 
                           {/* Progress bar */}
@@ -1101,24 +1146,24 @@ export default function CourseView() {
                               </span>
                             </div>
                             <p className="text-xs text-gray-400 font-medium mt-1">
-                              {student.completedTopics}/{totalTopics} topics
+                              {enrolledUser.completedTopics}/{totalTopics} topics
                             </p>
                           </td>
 
                           {/* Points */}
                           <td className="px-6 py-4 text-right hidden md:table-cell">
                             <span className="font-black text-gray-900 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 text-xs">
-                              {student.points} pts
+                              {enrolledUser.points} pts
                             </span>
                           </td>
 
                           {/* Actions */}
                           <td className="px-6 py-4 text-right">
-                            {unenrollConfirm === student.id ? (
+                            {unenrollConfirm === enrolledUser.id ? (
                               <div className="flex items-center justify-end gap-2">
                                 <span className="text-xs font-bold text-gray-600 hidden sm:inline">Remove?</span>
                                 <button
-                                  onClick={() => handleUnenroll(student.id)}
+                                  onClick={() => handleUnenroll(enrolledUser.id)}
                                   disabled={unenrolling}
                                   className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
                                 >
@@ -1133,11 +1178,12 @@ export default function CourseView() {
                               </div>
                             ) : (
                               <button
-                                onClick={() => setUnenrollConfirm(student.id)}
-                                className="flex items-center gap-1.5 text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors ml-auto border border-transparent hover:border-red-100"
+                                onClick={() => setUnenrollConfirm(enrolledUser.id)}
+                                disabled={enrolledUser.role === 'owner'}
+                                className="flex items-center gap-1.5 text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors ml-auto border border-transparent hover:border-red-100 disabled:opacity-30"
                               >
                                 <UserMinus className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Unenroll</span>
+                                <span className="hidden sm:inline">Remove</span>
                               </button>
                             )}
                           </td>
@@ -1149,19 +1195,19 @@ export default function CourseView() {
               </div>
             )}
             
-            {/* Students Pagination */}
-            {!studentsLoading && !studentsError && filteredStudents.length > ITEMS_PER_PAGE && (
+            {/* Users Pagination */}
+            {!usersLoading && !usersError && filteredUsers.length > ITEMS_PER_PAGE && (
               <div className="flex justify-between items-center mt-4 px-2 text-sm text-gray-600 font-medium">
-                <div>Page {studentsPage} of {Math.ceil(filteredStudents.length / ITEMS_PER_PAGE)}</div>
+                <div>Page {usersPage} of {Math.ceil(filteredUsers.length / ITEMS_PER_PAGE)}</div>
                 <div className="flex space-x-2">
                   <button 
-                    onClick={() => setStudentsPage(p => Math.max(1, p - 1))} 
-                    disabled={studentsPage === 1}
+                    onClick={() => setUsersPage(p => Math.max(1, p - 1))} 
+                    disabled={usersPage === 1}
                     className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
                   >Prev</button>
                   <button 
-                    onClick={() => setStudentsPage(p => Math.min(Math.ceil(filteredStudents.length / ITEMS_PER_PAGE), p + 1))} 
-                    disabled={studentsPage === Math.ceil(filteredStudents.length / ITEMS_PER_PAGE)}
+                    onClick={() => setUsersPage(p => Math.min(Math.ceil(filteredUsers.length / ITEMS_PER_PAGE), p + 1))} 
+                    disabled={usersPage === Math.ceil(filteredUsers.length / ITEMS_PER_PAGE)}
                     className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
                   >Next</button>
                 </div>

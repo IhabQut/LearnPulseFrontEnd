@@ -6,15 +6,29 @@ type Role = 'student' | 'professor';
 export interface User {
   id: string;
   name: string;
-  role: Role;
-  points: number;
-  email: string;
-  bio: string;
-  zoom_enabled?: boolean;
-  in_person_enabled?: boolean;
-  office_hours: string;
-  meeting_link: string;
-  rating?: number;
+  role: 'student' | 'professor';
+  email?: string;
+  phone_number?: string;
+  bio?: string;
+  // Specialized data
+  student?: {
+    points: number;
+    major: string;
+    level: string;
+    gpa: number;
+    graduation_year?: number;
+  };
+  professor?: {
+    department: string;
+    expertise: string;
+    academic_rank: string;
+    office_location: string;
+    meeting_link: string;
+    zoom_enabled: boolean;
+    in_person_enabled: boolean;
+    office_hours: string; // JSON string
+  };
+  rating?: string;
   stats?: {
     completed_topics_count: number;
     quizzes_taken_count: number;
@@ -22,19 +36,13 @@ export interface User {
     courses_enrolled_count: number;
     managed_students_count: number;
     total_courses_count: number;
-    recent_activity: {
-      id: string;
-      type: string;
-      title: string;
-      date: string;
-      detail: string;
-    }[];
+    recent_activity: any[];
   };
 }
 
 interface AuthState {
   user: User | null;
-  login: (role: Role) => Promise<void>;
+  login: (role: Role, userId?: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -51,12 +59,12 @@ const getStoredUser = (): User | null => {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: getStoredUser(),
-  login: async (role) => {
+  login: async (role, userId) => {
     try {
       const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role })
+        body: JSON.stringify({ role, user_id: userId })
       });
       console.log(response);
       const data = await response.json();

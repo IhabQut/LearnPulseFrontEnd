@@ -43,7 +43,7 @@ export default function Registrations() {
   const fetchData = async () => {
     try {
       const [cRes, eRes] = await Promise.all([
-        fetch(`${API_BASE}/api/courses`),
+        fetch(`${API_BASE}/api/courses?user_id=${user?.id || 'u1'}`),
         fetch(`${API_BASE}/api/enrollments/my-status?user_id=${user?.id}`)
       ]);
       const cData = await cRes.json();
@@ -102,26 +102,6 @@ export default function Registrations() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-12 animate-in fade-in duration-700 pb-24">
-      {/* Hero Header - Premium Glassmorphism */}
-      <div className="relative overflow-hidden rounded-[48px] bg-gray-900 border border-white/5 p-16 text-white shadow-2xl">
-        <div className="absolute top-0 right-0 -m-20 w-[600px] h-[600px] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
-        
-        <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-2xl mb-8">
-            <Sparkles className="w-4 h-4 text-blue-400" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-300">New Semester Admissions Open</span>
-          </div>
-          <h1 className="text-6xl font-black tracking-tight mb-6 leading-[1.1]">
-            Find Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Competitive</span> Advantage
-          </h1>
-          <p className="text-gray-400 text-xl font-medium leading-relaxed">
-            Browse our curated selection of industry-aligned courses. 
-            Real-time collaboration, expert-led sessions, and AI-assisted learning paths.
-          </p>
-        </div>
-      </div>
-
       {/* Control Bar - High Contrast */}
       <div className="flex flex-col xl:flex-row gap-8 items-start xl:items-center justify-between bg-white/70 backdrop-blur-xl p-6 rounded-[40px] border border-gray-100 shadow-xl shadow-gray-200/20 sticky top-4 z-30 transition-all">
         
@@ -224,7 +204,8 @@ export default function Registrations() {
           const status = enrollments[course.id] || 'none';
           const isEnrolled = status === 'approved';
           const isPending = status === 'pending';
-          const canAccess = isEnrolled || user?.role === 'professor';
+          const isOwner = user?.id === course.professor_id;
+          const canAccess = isEnrolled || isOwner;
 
           return (
             <div key={course.id} className="group relative">
@@ -240,7 +221,14 @@ export default function Registrations() {
                     )}
                   </div>
                   <div className="min-w-0 pr-4">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">{course.instructorName}</div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-blue-600 truncate">{course.professor_name || 'Instructor'}</div>
+                      {(course.user_role || isOwner) && (
+                        <div className="bg-gray-100 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter text-gray-500 border border-gray-200">
+                          {isOwner ? 'owner' : course.user_role}
+                        </div>
+                      )}
+                    </div>
                     <h3 className="text-xl font-black text-gray-900 mb-2 truncate group-hover:text-blue-600 transition-colors">{course.title}</h3>
                     <p className="text-sm text-gray-500 font-medium line-clamp-1 lg:line-clamp-2 leading-relaxed">{course.description}</p>
                   </div>
