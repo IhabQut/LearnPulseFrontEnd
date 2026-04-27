@@ -3,7 +3,7 @@ import { Navigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useCourseStore } from '../store/courseStore';
 import { BrainCircuit, AlertTriangle, TrendingDown, CheckCircle2, Bot, ArrowLeft, RefreshCw } from 'lucide-react';
-import { API_BASE } from '../lib/api';
+import { apiFetch } from '../lib/api';
 
 type StrugglingTopic = {
   topic_title: string;
@@ -45,8 +45,7 @@ export default function AIAnalysis() {
     if (!courseId) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/analytics/course/${courseId}`);
-      const data = await res.json();
+      const data = await apiFetch<AIReportData>(`/api/analytics/course/${courseId}`);
       setReport(data);
     } catch (err) {
       console.error("Failed to fetch analytics:", err);

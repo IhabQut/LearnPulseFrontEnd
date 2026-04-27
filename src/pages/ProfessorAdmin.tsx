@@ -3,7 +3,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useCourseStore } from '../store/courseStore';
 import { BookOpen, Trash2, Plus, Users, ChevronRight, X, Clock, Calendar } from 'lucide-react';
-import { API_BASE } from '../lib/api';
+import { apiFetch } from '../lib/api';
 
 
 
@@ -50,16 +50,15 @@ export default function ProfessorAdmin() {
 
 
   const fetchMeetings = async () => {
-    const res = await fetch(`${API_BASE}/api/meetings`);
-    const data = await res.json();
+    const data = await apiFetch<MeetingRequest[]>(`/api/meetings`);
     setMeetings(data);
     setIsMeetingsModalOpen(true);
   };
 
   const handleMeetingStatus = async (meetingId: string, status: string) => {
-    await fetch(`${API_BASE}/api/meetings/${meetingId}?status=${status}`, { method: 'PUT' });
-    const res = await fetch(`${API_BASE}/api/meetings`);
-    setMeetings(await res.json());
+    await apiFetch(`/api/meetings/${meetingId}?status=${status}`, { method: 'PUT' });
+    const data = await apiFetch<MeetingRequest[]>(`/api/meetings`);
+    setMeetings(data);
   };
 
   const openContentPanel = (courseId: string) => {

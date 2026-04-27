@@ -14,7 +14,7 @@ import {
   Zap,
   PlusCircle
 } from 'lucide-react';
-import { API_BASE } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import { StatCard } from '../components/Dashboard/StatCard';
 import PointsDialog from '../components/Dashboard/PointsDialog';
 import { motion } from 'framer-motion';
@@ -49,8 +49,7 @@ export default function Dashboard() {
       if (courses.length > 0) {
         courses.forEach(async (course) => {
           try {
-            const res = await fetch(`${API_BASE}/api/courses/${course.id}/leaderboard`);
-            const data: LeaderboardEntry[] = await res.json();
+            const data = await apiFetch<LeaderboardEntry[]>(`/api/courses/${course.id}/leaderboard`);
             const me = data.find(e => e.id === user.id);
             setCoursePoints(prev => ({
               ...prev,
@@ -64,8 +63,7 @@ export default function Dashboard() {
         });
       }
 
-      fetch(`${API_BASE}/api/analytics/student/${user.id}`)
-        .then(res => res.json())
+      apiFetch<AnalyticsData>(`/api/analytics/student/${user.id}`)
         .then(data => setAnalytics(data))
         .catch(err => console.error("Failed to fetch analytics", err));
     }

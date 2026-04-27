@@ -9,7 +9,7 @@ import NotificationBell from "../notifications/NotificationBell";
 
 export default function MainLayout() {
 
-  const { user, login, logout } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { fetchCourses } = useCourseStore();
   const { fetchDiscussions } = useDiscussionStore();
 
@@ -102,8 +102,7 @@ export default function MainLayout() {
 
         {/* User Section */}
         <div className="p-4 border-t border-gray-100 bg-gray-50/50">
-
-          {user ? (
+          {user && (
             <div className="flex flex-col gap-3">
 
               <div className="flex items-center">
@@ -132,42 +131,7 @@ export default function MainLayout() {
               </button>
 
             </div>
-          ) : (
-
-            <div className="flex flex-col gap-2">
-
-              <button
-                onClick={() => login("student", "u1")}
-                className="flex items-center justify-center px-4 py-2 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm hover:shadow transition-all"
-              >
-                Login as Student (Sara)
-              </button>
-              
-              <button
-                onClick={() => login("student", "u2")}
-                className="flex items-center justify-center px-4 py-2 text-xs font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm hover:shadow transition-all"
-              >
-                Login as Student 2 (Ahmad)
-              </button>
-
-              <button
-                onClick={() => login("professor", "p1")}
-                className="flex items-center justify-center px-4 py-2 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100 transition-all mt-2"
-              >
-                Login as Prof Smith
-              </button>
-
-              <button
-                onClick={() => login("professor", "p2")}
-                className="flex items-center justify-center px-4 py-2 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all"
-              >
-                Login as Dr. Emily
-              </button>
-
-            </div>
-
           )}
-
         </div>
       </aside>
 

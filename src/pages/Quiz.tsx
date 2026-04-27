@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { CheckCircle, XCircle, ChevronLeft, ChevronRight, AlertCircle, ArrowLeft, Trophy, RotateCw } from 'lucide-react';
-import { API_BASE } from '../lib/api';
+import { apiFetch } from '../lib/api';
 
 type QuizQuestion = {
   id: string;
@@ -46,15 +46,13 @@ export default function Quiz() {
   useEffect(() => {
     const fetchQuiz = async () => {
       let url = '';
-      if (quizId) url = `${API_BASE}/api/quizzes/${quizId}`;
-      else if (topicId) url = `${API_BASE}/api/quizzes/topic/${topicId}`;
-      else if (chapterId) url = `${API_BASE}/api/quizzes/chapter/${chapterId}`;
+      if (quizId) url = `/api/quizzes/${quizId}`;
+      else if (topicId) url = `/api/quizzes/topic/${topicId}`;
+      else if (chapterId) url = `/api/quizzes/chapter/${chapterId}`;
       else { setLoading(false); return; }
 
       try {
-        const res = await fetch(url);
-        if (!res.ok) { setLoading(false); return; }
-        const data = await res.json();
+        const data = await apiFetch<QuizData>(url);
         if (data) {
           setQuiz(data);
           setAnswers(new Array(data.questions.length).fill(null));
@@ -90,12 +88,10 @@ export default function Quiz() {
   const handleSubmit = async () => {
     const finalAnswers = answers.map(a => a ?? -1);
     try {
-      const res = await fetch(`${API_BASE}/api/quizzes/${quiz.id}/submit`, {
+      const data = await apiFetch<QuizResult>(`/api/quizzes/${quiz.id}/submit`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: user?.id || "u1", answers: finalAnswers })
       });
-      const data: QuizResult = await res.json();
       setResult(data);
       // Refresh user points
       if (data.points_awarded > 0) {

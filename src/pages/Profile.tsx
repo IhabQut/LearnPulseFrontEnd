@@ -4,7 +4,7 @@ import { useAuthStore, type User } from '../store/authStore';
 import { 
   User as UserIcon, Mail, Clock, Calendar, Shield, Save, MessageCircle, ArrowLeft, BookOpen, Plus, Trash, Globe, MapPin, CheckCircle, Trophy, Star, Users, TrendingUp, Activity, ChevronRight, Phone, GraduationCap, Award, Book, Briefcase
 } from 'lucide-react';
-import { API_BASE } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import { StatCard } from '../components/Dashboard/StatCard';
 
 export default function Profile() {
@@ -84,8 +84,7 @@ export default function Profile() {
       initProfile(currentUser);
     } else {
       setLoading(true);
-      fetch(`${API_BASE}/api/profile/${viewUserId}`)
-        .then(r => r.json())
+      apiFetch<User>(`/api/profile/${viewUserId}`)
         .then(data => {
           initProfile(data);
           setLoading(false);
@@ -153,9 +152,8 @@ export default function Profile() {
   const requestMeeting = async () => {
     if (!meetingSlot) return alert("Please select a slot.");
     try {
-      await fetch(`${API_BASE}/api/meetings`, {
+      await apiFetch(`/api/meetings`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           professor_id: viewUserId,
           note: meetingNote,

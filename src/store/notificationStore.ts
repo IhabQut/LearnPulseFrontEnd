@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { API_BASE } from '../lib/api';
+import { apiFetch } from '../lib/api';
 
 export interface Notification {
   id: string;
@@ -26,27 +26,20 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   fetchNotifications: async (userId) => {
     set({ loading: true });
     try {
-      const response = await fetch(`${API_BASE}/api/notifications/?user_id=${userId}`);
-      if (response.ok) {
-        const data = await response.json();
-        set({ notifications: data });
-      }
+      const data = await apiFetch<any[]>(`/api/notifications/?user_id=${userId}`);
+      set({ notifications: data });
     } finally {
       set({ loading: false });
     }
   },
   markAsRead: async (notificationId) => {
     try {
-      const response = await fetch(`${API_BASE}/api/notifications/${notificationId}/read`, {
-        method: 'PUT',
-      });
-      if (response.ok) {
-        set((state) => ({
-          notifications: state.notifications.map((n) =>
-            n.id === notificationId ? { ...n, is_read: true } : n
-          ),
-        }));
-      }
+      await apiFetch(`/api/notifications/${notificationId}/read`, { method: 'PUT' });
+      set((state) => ({
+        notifications: state.notifications.map((n) =>
+          n.id === notificationId ? { ...n, is_read: true } : n
+        ),
+      }));
     } catch (error) {
       console.error('Failed to mark notification as read', error);
     }
@@ -55,29 +48,20 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     const { notifications } = get();
     const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
     
-    // In a real app, there would be a bulk endpoint. 
-    // For now, we'll mark all as read locally for immediate feedback 
-    // and potentially hit individual endpoints if necessary.
-    // Let's assume there's no bulk endpoint yet, but we'll reflect it in the store.
     set({
       notifications: notifications.map(n => ({ ...n, is_read: true }))
     });
     
-    // Try to hit individual endpoints (silent)
     unreadIds.forEach(id => {
-      fetch(`${API_BASE}/api/notifications/${id}/read`, { method: 'PUT' });
+      apiFetch(`/api/notifications/${id}/read`, { method: 'PUT' }).catch(() => {});
     });
   },
   deleteNotification: async (notificationId) => {
     try {
-      const response = await fetch(`${API_BASE}/api/notifications/${notificationId}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        set((state) => ({
-          notifications: state.notifications.filter((n) => n.id !== notificationId),
-        }));
-      }
+      await apiFetch(`/api/notifications/${notificationId}`, { method: 'DELETE' });
+      set((state) => ({
+        notifications: state.notifications.filter((n) => n.id !== notificationId),
+      }));
     } catch (error) {
       console.error('Failed to delete notification', error);
     }

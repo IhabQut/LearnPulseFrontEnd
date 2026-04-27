@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDiscussionStore } from '../store/discussionStore';
 import { useAuthStore } from '../store/authStore';
 import { useCourseStore } from '../store/courseStore';
-import { API_BASE } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import {
   ArrowLeft,
   ThumbsUp,
@@ -64,8 +64,7 @@ export default function DiscussionThread() {
 
   useEffect(() => {
     if (courseId) {
-      fetch(`${API_BASE}/api/courses/${courseId}/students`)
-        .then(r => r.ok ? r.json() : [])
+      apiFetch<any[]>(`/api/courses/${courseId}/students`)
         .then(data => {
           if (Array.isArray(data)) {
             setCourseStudents(data.map((s: any) => ({ id: s.id, name: s.name })));

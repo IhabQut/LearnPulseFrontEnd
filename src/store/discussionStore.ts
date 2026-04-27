@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { API_BASE } from '../lib/api';
+import { apiFetch } from '../lib/api';
 
 export type Reply = {
   id: string;
@@ -68,9 +68,8 @@ export const useDiscussionStore = create<DiscussionState>((set) => ({
 
   fetchDiscussions: async (userId) => {
     try {
-      const url = userId ? `${API_BASE}/api/discussions?user_id=${userId}` : `${API_BASE}/api/discussions`;
-      const response = await fetch(url);
-      const rawData = await response.json();
+      const url = userId ? `/api/discussions?user_id=${userId}` : `/api/discussions`;
+      const rawData = await apiFetch<any[]>(url);
       set({ discussions: rawData.map(mapDiscussion) });
     } catch (error) {
       console.error("Failed to fetch discussions:", error);
@@ -79,10 +78,8 @@ export const useDiscussionStore = create<DiscussionState>((set) => ({
 
   fetchDiscussion: async (id: string, userId?: string) => {
     try {
-      const url = userId ? `${API_BASE}/api/discussions/${id}?user_id=${userId}` : `${API_BASE}/api/discussions/${id}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Not found');
-      const data = await response.json();
+      const url = userId ? `/api/discussions/${id}?user_id=${userId}` : `/api/discussions/${id}`;
+      const data = await apiFetch<any>(url);
       set({ currentDiscussion: mapDiscussion(data) });
     } catch (error) {
       console.error("Failed to fetch discussion:", error);
@@ -98,12 +95,10 @@ export const useDiscussionStore = create<DiscussionState>((set) => ({
         date: 'Just now',
         upvotes: 0,
       };
-      const response = await fetch(`${API_BASE}/api/discussions`, {
+      const data = await apiFetch<any>(`/api/discussions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dbDiscussion)
       });
-      const data = await response.json();
       set((state) => ({
         discussions: [mapDiscussion(data), ...state.discussions]
       }));
@@ -120,16 +115,10 @@ export const useDiscussionStore = create<DiscussionState>((set) => ({
         date: 'Just now',
         upvotes: 0,
       };
-      const response = await fetch(`${API_BASE}/api/discussions/${discussionId}/replies`, {
+      const data = await apiFetch<any>(`/api/discussions/${discussionId}/replies`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dbReply)
       });
-      const data = await response.json();
-      if (!response.ok) {
-        console.error("Failed to add reply:", data);
-        return;
-      }
 
       const mapped = mapReply(data);
 
@@ -151,12 +140,10 @@ export const useDiscussionStore = create<DiscussionState>((set) => ({
 
   setVote: async (userId, discussionId, voteType) => {
     try {
-      const res = await fetch(`${API_BASE}/api/discussions/${discussionId}/vote`, {
+      const data = await apiFetch<any>(`/api/discussions/${discussionId}/vote`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId, vote_type: voteType })
       });
-      const data = await res.json();
       
       set((state) => ({
         discussions: state.discussions.map(d => d.id === discussionId ? { ...d, upvotes: data.upvotes, userVote: data.user_vote } : d),
@@ -171,12 +158,10 @@ export const useDiscussionStore = create<DiscussionState>((set) => ({
 
   setReplyVote: async (userId, discussionId, replyId, voteType) => {
     try {
-      const res = await fetch(`${API_BASE}/api/discussions/replies/${replyId}/vote`, {
+      const data = await apiFetch<any>(`/api/discussions/replies/${replyId}/vote`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId, vote_type: voteType })
       });
-      const data = await res.json();
       
       set((state) => ({
         discussions: state.discussions.map(d => {
@@ -202,9 +187,8 @@ export const useDiscussionStore = create<DiscussionState>((set) => ({
 
   awardPoints: async (discussionId, userId, points) => {
     try {
-      await fetch(`${API_BASE}/api/discussions/${discussionId}/award-points`, {
+      await apiFetch(`/api/discussions/${discussionId}/award-points`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId, points })
       });
     } catch (error) {

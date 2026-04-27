@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Calendar, Clock, CheckCircle, XCircle, Globe, MapPin, 
-  ExternalLink, User as UserIcon, MessageSquare, ChevronRight, Filter
+  Calendar, Clock, Globe, MapPin, 
+  ExternalLink, MessageSquare
 } from 'lucide-react';
-import { API_BASE } from '../lib/api';
+import { apiFetch } from '../lib/api';
 
 type MeetingRequest = {
   id: string;
@@ -29,8 +29,7 @@ export default function Meetings() {
     if (!user) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/meetings?user_id=${user.id}`);
-      const data = await res.json();
+      const data = await apiFetch<MeetingRequest[]>(`/api/meetings?user_id=${user.id}`);
       setMeetings(data);
     } catch (err) {
       console.error("Failed to fetch meetings:", err);
@@ -46,7 +45,7 @@ export default function Meetings() {
 
   const updateStatus = async (meetingId: string, status: string) => {
     try {
-      await fetch(`${API_BASE}/api/meetings/${meetingId}?status=${status}`, {
+      await apiFetch(`/api/meetings/${meetingId}?status=${status}`, {
         method: 'PUT'
       });
       fetchMeetings();

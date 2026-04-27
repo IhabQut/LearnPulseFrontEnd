@@ -4,7 +4,7 @@ import { BookOpen, FileText, MessageSquare, Trophy, ChevronRight, ChevronUp, Dow
 import { useAuthStore } from '../store/authStore';
 import { useDiscussionStore } from '../store/discussionStore';
 import { useCourseStore } from '../store/courseStore';
-import { API_BASE } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import { useDebounce } from '../hooks/useDebounce';
 
 type Tab = 'chapters' | 'materials' | 'discussions' | 'leaderboard' | 'quizzes' | 'users' | 'ai-insights';
@@ -82,13 +82,11 @@ export default function CourseView() {
 
   useEffect(() => {
     if (!course) return;
-    fetch(`${API_BASE}/api/courses/${course.id}/leaderboard`)
-      .then(r => r.json())
+    apiFetch<LeaderboardEntry[]>(`/api/courses/${course.id}/leaderboard`)
       .then(setLeaderboard)
       .catch(console.error);
 
-    fetch(`${API_BASE}/api/quizzes/course/${course.id}`)
-      .then(r => r.json())
+    apiFetch<QuizInfo[]>(`/api/quizzes/course/${course.id}`)
       .then(setQuizzes)
       .catch(console.error);
   }, [course?.id]);
@@ -100,14 +98,12 @@ export default function CourseView() {
     setUsersError(null);
     
     // Fetch Enrolled Users
-    fetch(`${API_BASE}/api/courses/${course.id}/students`)
-      .then(r => r.json())
+    apiFetch<EnrolledUser[]>(`/api/courses/${course.id}/students`)
       .then(setUsers)
       .catch(console.error);
 
     // Fetch Pending Requests
-    fetch(`${API_BASE}/api/courses/${course.id}/enrollment-requests`)
-      .then(r => r.json())
+    apiFetch<any[]>(`/api/courses/${course.id}/enrollment-requests`)
       .then(setPendingRequests)
       .finally(() => setUsersLoading(false));
   }, [activeTab, course?.id, user?.role]);
@@ -137,7 +133,7 @@ export default function CourseView() {
     if (!course) return;
     setUnenrolling(true);
     try {
-      await fetch(`${API_BASE}/api/courses/${course.id}/students/${userId}`, { method: 'DELETE' });
+      await apiFetch(`/api/courses/${course.id}/students/${userId}`, { method: 'DELETE' });
       setUsers(prev => prev.filter(u => u.id !== userId));
     } catch (err) {
       console.error('Failed to unenroll user:', err);
@@ -150,18 +146,14 @@ export default function CourseView() {
   const handleUpdateRole = async (enrollment_id: string, newRole: string) => {
     setUpdatingRole(enrollment_id);
     try {
-      const res = await fetch(`${API_BASE}/api/enrollments/${enrollment_id}/role`, {
+      await apiFetch(`/api/enrollments/${enrollment_id}/role`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: newRole })
       });
-      if (res.ok) {
-        setUsers(prev => prev.map(u => u.enrollment_id === enrollment_id ? { ...u, role: newRole } : u));
-      } else {
-        alert('Failed to update role');
-      }
+      setUsers(prev => prev.map(u => u.enrollment_id === enrollment_id ? { ...u, role: newRole } : u));
     } catch (err) {
       console.error(err);
+      alert('Failed to update role');
     } finally {
       setUpdatingRole(null);
     }
@@ -172,34 +164,30 @@ export default function CourseView() {
     if (!course || !enrollUserId.trim()) return;
     setEnrolling(true);
     try {
-      const res = await fetch(`${API_BASE}/api/courses/${course.id}/enroll-student`, {
+      await apiFetch(`/api/courses/${course.id}/enroll-student`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: enrollUserId })
       });
-      if (res.ok) {
-        setEnrollUserId('');
-        const refreshed = await fetch(`${API_BASE}/api/courses/${course.id}/students`).then(r => r.json());
-        setUsers(refreshed);
-      } else {
-        alert('Failed to enroll user. Please check the user ID.');
-      }
+      setEnrollUserId('');
+      const refreshed = await apiFetch<EnrolledUser[]>(`/api/courses/${course.id}/students`);
+      setUsers(refreshed);
     } catch (err) {
       console.error(err);
+      alert('Failed to enroll user. Please check the user ID.');
     } finally {
       setEnrolling(false);
     }
   };
 
   const handleApproveRequest = async (requestId: string) => {
-    await fetch(`${API_BASE}/api/enrollments/${requestId}/approve`, { method: 'POST' });
+    await apiFetch(`/api/enrollments/${requestId}/approve`, { method: 'POST' });
     setPendingRequests(prev => prev.filter(r => r.id !== requestId));
-    const refreshed = await fetch(`${API_BASE}/api/courses/${course?.id}/students`).then(r => r.json());
+    const refreshed = await apiFetch<EnrolledUser[]>(`/api/courses/${course?.id}/students`);
     setUsers(refreshed);
   };
 
   const handleRejectRequest = async (requestId: string) => {
-    await fetch(`${API_BASE}/api/enrollments/${requestId}`, { method: 'DELETE' });
+    await apiFetch(`/api/enrollments/${requestId}`, { method: 'DELETE' });
     setPendingRequests(prev => prev.filter(r => r.id !== requestId));
   };
 

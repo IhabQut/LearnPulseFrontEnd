@@ -13,14 +13,29 @@ import AIAnalysis from './pages/AIAnalysis';
 import Meetings from './pages/Meetings';
 import Notifications from './pages/Notifications';
 import CreateCourse from './pages/CreateCourse';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { useAuthStore } from './store/authStore';
+
+/** Route guard — redirects to /login when not authenticated */
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user);
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
 
 function App() {
   return (
     <ErrorBoundary>
     <Router>
       <Routes>
-        <Route path="/" element={<MainLayout />}>
+        {/* Public auth routes (no sidebar/layout) */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Protected app routes */}
+        <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="registrations" element={<Registrations />} />
           <Route path="my-courses" element={<MyCourses />} />

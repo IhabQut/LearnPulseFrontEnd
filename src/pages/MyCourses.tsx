@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useCourseStore } from '../store/courseStore';
 import { useAuthStore } from '../store/authStore';
-import { API_BASE } from '../lib/api';
+import { apiFetch } from '../lib/api';
 
 export default function MyCourses() {
   const { courses, fetchCourses } = useCourseStore();
@@ -25,9 +25,8 @@ export default function MyCourses() {
 
   useEffect(() => {
     if (user && user.role === 'student') {
-      fetch(`${API_BASE}/api/users/${user.id}/enrollments`)
-        .then(r => r.json())
-        .then((data: { course_id: string; status: string }[]) => {
+      apiFetch<{ course_id: string; status: string }[]>(`/api/users/${user.id}/enrollments`)
+        .then((data) => {
           // Only approved enrollments
           setEnrollments(data.filter(e => e.status === 'approved').map(e => e.course_id));
         })

@@ -4,7 +4,7 @@ import { ChevronRight, ChevronDown, PlayCircle, CheckCircle2, MessageSquare, Awa
 import { useAuthStore } from '../store/authStore';
 import { useDiscussionStore } from '../store/discussionStore';
 import { useCourseStore } from '../store/courseStore';
-import { API_BASE } from '../lib/api';
+import { apiFetch } from '../lib/api';
 
 export default function ChapterView() {
   const { courseId, chapterId } = useParams();
@@ -115,15 +115,12 @@ export default function ChapterView() {
 
 
   const handleOpenQuizManager = async (type: 'topic' | 'chapter', id: string) => {
-    let url = `${API_BASE}/api/quizzes/${type}/${id}`;
-    const res = await fetch(url);
-    let quizData = await res.json();
+    let quizData = await apiFetch<any>(`/api/quizzes/${type}/${id}`).catch(() => null);
 
     if (!quizData) {
       // Create quiz if not exists
-      const createRes = await fetch(`${API_BASE}/api/quizzes/${type}/${id}`, {
+      quizData = await apiFetch<any>(`/api/quizzes/${type}/${id}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: type === 'topic' ? `Quiz: ${chapter.topics.find(t => t.id === id)?.title}` : `Final Quiz: ${chapter.title}`,
           quiz_type: type,
@@ -131,7 +128,6 @@ export default function ChapterView() {
           chapter_id: type === 'chapter' ? id : null
         })
       });
-      quizData = await createRes.json();
     }
     setActiveQuiz(quizData);
     setIsQuizModalOpen(true);
@@ -139,15 +135,13 @@ export default function ChapterView() {
 
   const handleAddQuestion = async () => {
     if (!activeQuiz) return;
-    const res = await fetch(`${API_BASE}/api/quizzes/${activeQuiz.id}/questions`, {
+    const question = await apiFetch<any>(`/api/quizzes/${activeQuiz.id}/questions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...newQuestion,
         options: JSON.stringify(newQuestion.options)
       })
     });
-    const question = await res.json();
     setActiveQuiz({ ...activeQuiz, questions: [...activeQuiz.questions, question] });
     setNewQuestion({
       question: '',
@@ -158,7 +152,7 @@ export default function ChapterView() {
   };
 
   const handleDeleteQuestion = async (qId: string) => {
-    await fetch(`${API_BASE}/api/quizzes/questions/${qId}`, { method: 'DELETE' });
+    await apiFetch(`/api/quizzes/questions/${qId}`, { method: 'DELETE' });
     setActiveQuiz({ ...activeQuiz, questions: activeQuiz.questions.filter((q: any) => q.id !== qId) });
   };
 

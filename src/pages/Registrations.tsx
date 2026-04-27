@@ -2,9 +2,9 @@ import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Search, Plus, Filter, Clock, CheckCircle, ChevronRight, UserPlus, Sparkles, Beaker, Code, Briefcase, Globe, Cpu, Languages, FlaskConical, Users
+  Search, Plus, Filter, Clock, CheckCircle, ChevronRight, UserPlus, Beaker, Code, Briefcase, Globe, Cpu, Languages, FlaskConical, Users
 } from 'lucide-react';
-import { API_BASE } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import { useDebounce } from '../hooks/useDebounce';
 
 const INDUSTRIES = [
@@ -42,12 +42,10 @@ export default function Registrations() {
 
   const fetchData = async () => {
     try {
-      const [cRes, eRes] = await Promise.all([
-        fetch(`${API_BASE}/api/courses?user_id=${user?.id || 'u1'}`),
-        fetch(`${API_BASE}/api/enrollments/my-status?user_id=${user?.id}`)
+      const [cData, eData] = await Promise.all([
+        apiFetch<any[]>(`/api/courses?user_id=${user?.id || 'u1'}`),
+        apiFetch<Record<string, string>>(`/api/enrollments/my-status?user_id=${user?.id}`)
       ]);
-      const cData = await cRes.json();
-      const eData = await eRes.json();
       setCourses(cData);
       setEnrollments(eData);
       setLoading(false);
@@ -60,9 +58,8 @@ export default function Registrations() {
   const handleRequestJoin = async (courseId: string) => {
     setRequesting(courseId);
     try {
-      await fetch(`${API_BASE}/api/enrollments/request`, {
+      await apiFetch(`/api/enrollments/request`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: user?.id, course_id: courseId })
       });
       setEnrollments(prev => ({ ...prev, [courseId]: 'pending' }));
