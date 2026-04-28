@@ -33,3 +33,29 @@ export type Course = {
   chapters: Chapter[];
   materials: Material[];
 };
+
+// ─── AI Course Builder ───────────────────────────────────────────
+
+export type DraftTopic = {
+  title: string;
+  description: string;
+};
+
+export type DraftChapter = {
+  title: string;
+  summary: string;
+  topics: DraftTopic[];
+};
+
+export type GradingComponent = {
+  name: string;
+  weight: number;
+  component_type: string;
+};
+
+export type SemesterWeekDraft = {
+  week_num: number;
+  chapter_title: string;
+  topics_json: string;   // JSON array of topic title strings
+  notes: string;
+};

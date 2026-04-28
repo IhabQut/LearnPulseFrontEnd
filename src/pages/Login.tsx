@@ -28,14 +28,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
-
-      {/* Animated background orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute w-96 h-96 rounded-full opacity-20 animate-pulse" style={{ background: 'radial-gradient(circle, #3b82f6, transparent)', top: '-10%', left: '-5%' }} />
-        <div className="absolute w-80 h-80 rounded-full opacity-15 animate-pulse" style={{ background: 'radial-gradient(circle, #8b5cf6, transparent)', bottom: '-8%', right: '-3%', animationDelay: '1s' }} />
-        <div className="absolute w-64 h-64 rounded-full opacity-10 animate-pulse" style={{ background: 'radial-gradient(circle, #06b6d4, transparent)', top: '40%', right: '20%', animationDelay: '2s' }} />
-      </div>
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: 'white' }}>
 
       {/* Login Card */}
       <div className="relative z-10 w-full max-w-md mx-4">

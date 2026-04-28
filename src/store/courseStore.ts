@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { type Course } from '../types';
+import { type Course, type DraftChapter, type GradingComponent, type SemesterWeekDraft } from '../types';
 import { apiFetch } from '../lib/api';
 import { useAuthStore } from './authStore';
 
@@ -7,7 +7,7 @@ interface CourseState {
   courses: Course[];
   fetchCourses: () => Promise<void>;
   markTopicDone: (courseId: string, chapterId: string, topicId: string) => Promise<void>;
-  createCourse: (data: { title: string; description: string; category?: string; image?: string; is_open?: boolean }, professorId: string) => Promise<void>;
+  createCourse: (data: { title: string; description: string; category?: string; image?: string; is_open?: boolean }, professorId: string) => Promise<string>;
   updateCourse: (courseId: string, data: { title?: string; description?: string; category?: string; image?: string; is_open?: boolean }) => Promise<void>;
   deleteCourse: (courseId: string) => Promise<void>;
   createChapter: (courseId: string, title: string, summary: string) => Promise<void>;
@@ -20,6 +20,12 @@ interface CourseState {
   removeMaterial: (courseId: string, materialId: string) => Promise<void>;
   fetchAIReport: (courseId: string) => Promise<any>;
   generateChapterSummary: (chapterId: string) => Promise<string>;
+  // AI Course Builder
+  bulkSaveChapters: (courseId: string, chapters: DraftChapter[]) => Promise<void>;
+  saveGrading: (courseId: string, components: GradingComponent[]) => Promise<void>;
+  fetchGrading: (courseId: string) => Promise<GradingComponent[]>;
+  saveSemesterPlan: (courseId: string, weeks: SemesterWeekDraft[]) => Promise<void>;
+  fetchSemesterPlan: (courseId: string) => Promise<SemesterWeekDraft[]>;
 }
 
 export const useCourseStore = create<CourseState>((set) => ({
@@ -63,15 +69,12 @@ export const useCourseStore = create<CourseState>((set) => ({
   },
 
   createCourse: async (data, professorId) => {
-    try {
-      const createdCourse = await apiFetch<any>(`/api/courses?professor_id=${professorId}`, {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
-      set((state) => ({ courses: [...state.courses, createdCourse] }));
-    } catch (error) {
-      console.error("Failed to create course:", error);
-    }
+    const createdCourse = await apiFetch<any>(`/api/courses?professor_id=${professorId}`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    set((state) => ({ courses: [...state.courses, createdCourse] }));
+    return createdCourse.id as string;
   },
 
   updateCourse: async (courseId, data) => {
@@ -252,5 +255,48 @@ export const useCourseStore = create<CourseState>((set) => ({
       console.error("Failed to generate chapter summary:", error);
       return "Failed to generate summary. Please try again.";
     }
-  }
+  },
+
+  // ─── AI Course Builder ───────────────────────────────────────────
+
+  bulkSaveChapters: async (courseId, chapters) => {
+    await apiFetch(`/api/courses/${courseId}/chapters/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ chapters }),
+    });
+    // Refresh so the new chapters appear in the store
+    const userId = useAuthStore.getState().user?.id ?? '';
+    const updated = await apiFetch<any[]>(`/api/courses?user_id=${encodeURIComponent(userId)}`);
+    set({ courses: updated });
+  },
+
+  saveGrading: async (courseId, components) => {
+    await apiFetch(`/api/courses/${courseId}/grading`, {
+      method: 'POST',
+      body: JSON.stringify({ components }),
+    });
+  },
+
+  fetchGrading: async (courseId) => {
+    try {
+      return await apiFetch<GradingComponent[]>(`/api/courses/${courseId}/grading`);
+    } catch {
+      return [];
+    }
+  },
+
+  saveSemesterPlan: async (courseId, weeks) => {
+    await apiFetch(`/api/courses/${courseId}/semester-plan`, {
+      method: 'POST',
+      body: JSON.stringify({ weeks }),
+    });
+  },
+
+  fetchSemesterPlan: async (courseId) => {
+    try {
+      return await apiFetch<SemesterWeekDraft[]>(`/api/courses/${courseId}/semester-plan`);
+    } catch {
+      return [];
+    }
+  },
 }));
