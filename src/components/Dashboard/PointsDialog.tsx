@@ -9,7 +9,6 @@ interface PointsDialogProps {
 }
 
 export default function PointsDialog({ isOpen, onClose, courses, coursePoints }: PointsDialogProps) {
-  const totalPoints = Object.values(coursePoints).reduce((a, b) => a + b.points, 0);
 
   return (
     <AnimatePresence>
@@ -41,8 +40,8 @@ export default function PointsDialog({ isOpen, onClose, courses, coursePoints }:
                   <Trophy className="w-10 h-10" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black">Points Breakdown</h3>
-                  <p className="text-amber-100 font-bold opacity-90">Total Earned: {totalPoints} pts</p>
+                  <h3 className="text-2xl font-black">Course Leaderboards</h3>
+                  <p className="text-amber-100 font-bold opacity-90">Track your rank per course</p>
                 </div>
               </div>
             </div>

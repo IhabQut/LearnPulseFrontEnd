@@ -1,5 +1,4 @@
-import React from 'react';
-import { Sparkles, Loader2, Edit3 } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
 import { type DraftChapter, type SemesterWeekDraft } from '../../types';
 
 interface Props {

@@ -2,17 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useCourseStore } from '../store/courseStore';
-import { useDiscussionStore } from '../store/discussionStore';
+import { useNotificationStore } from '../store/notificationStore';
 import { 
   BookOpen, 
-  MessageSquare, 
   BarChart, 
-  Trophy, 
-  Target, 
   ArrowRight,
   Sparkles,
   Zap,
-  PlusCircle
+  PlusCircle,
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { StatCard } from '../components/Dashboard/StatCard';
@@ -37,10 +34,11 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { courses } = useCourseStore();
-  const { discussions } = useDiscussionStore();
   const [coursePoints, setCoursePoints] = useState<Record<string, { rank: number; points: number; total: number }>>({});
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [showPointsDialog, setShowPointsDialog] = useState(false);
+  const { notifications, fetchNotifications } = useNotificationStore();
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   useEffect(() => {
     document.title = 'Dashboard | AI Learning Hub';
@@ -66,8 +64,10 @@ export default function Dashboard() {
       apiFetch<AnalyticsData>(`/api/analytics/student/${user.id}`)
         .then(data => setAnalytics(data))
         .catch(err => console.error("Failed to fetch analytics", err));
+        
+      fetchNotifications(user.id);
     }
-  }, [user, courses]);
+  }, [user, courses, fetchNotifications]);
 
   if (!user) {
     return (
@@ -78,7 +78,6 @@ export default function Dashboard() {
     );
   }
 
-  const recentDiscussions = discussions.slice(0, 3);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 pb-12 px-4">
@@ -87,11 +86,7 @@ export default function Dashboard() {
         onClick={() => navigate('/courses')}/>
         {user.role === 'student' && (
           <>
-            <StatCard icon={<Trophy className="w-5 h-5" />} label="Points" value={Object.values(coursePoints).reduce((a, b) => a + b.points, 0)} color="amber" 
-            onClick={() => setShowPointsDialog(true)}/>
-            <StatCard icon={<Target className="w-5 h-5" />} label="Progress" value={`${analytics?.overall_progress || 0}%`} color="emerald" 
-            onClick={() => navigate('/courses')}/>
-            <StatCard icon={<Zap className="w-5 h-5" />} label="Notifications" value={0} color="indigo" 
+            <StatCard icon={<Zap className="w-5 h-5" />} label="Notifications" value={unreadCount} color="indigo" 
             onClick={() => navigate('/notifications')}/>
           </>
         )}
@@ -113,7 +108,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {user.role === 'student' && analytics && (
+      {user.role === 'student' && analytics && courses.some(c => c.user_role !== null) && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
             <div className="flex items-center justify-between mb-8">
@@ -197,90 +192,59 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Course Progress / Points */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-8 py-5 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="font-bold text-gray-900">
-              {user.role === 'student' ? 'Your Progress' : 'Your Courses'}
-            </h2>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {courses.slice(0, 4).map(course => {
-              const topics = course.chapters.flatMap((ch: any) => ch.topics || []);
-              const done = topics.filter((t: any) => t.completed).length;
-              const pct = topics.length > 0 ? Math.round(done / topics.length * 100) : 0;
-              const cp = coursePoints[course.id];
+      {/* My Courses List (Old Design Style) */}
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="font-bold text-gray-900">
+            {user.role === 'student' ? 'My Active Learning' : 'My Courses'}
+          </h2>
+          <Link to="/my-courses" className="text-sm font-bold text-blue-600 hover:text-blue-700">View All</Link>
+        </div>
+        <div className="divide-y divide-gray-50">
+          {courses.filter(c => c.user_role !== null).slice(0, 5).map(course => {
+            const topics = course.chapters.flatMap((ch: any) => ch.topics || []);
+            const done = topics.filter((t: any) => t.completed).length;
+            const pct = topics.length > 0 ? Math.round(done / topics.length * 100) : 0;
+            const cp = coursePoints[course.id];
 
-              return (
-                <Link key={course.id} to={`/courses/${course.id}`} className="p-6 flex items-center hover:bg-gray-50/50 transition-colors group">
-                  <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mr-4 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
-                    <BookOpen className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-900 text-sm truncate group-hover:text-blue-600 transition-colors">{course.title}</h3>
-                    <p className="text-xs text-gray-500">{course.chapters.length} chapters</p>
-                    {user.role === 'student' && (
-                      <div className="flex items-center mt-3 gap-3">
-                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
-                            className="h-full bg-blue-600 rounded-full"
-                          ></motion.div>
-                        </div>
-                        <span className="text-xs font-bold text-gray-900 shrink-0">{pct}%</span>
+            return (
+              <Link key={course.id} to={`/courses/${course.id}`} className="p-6 flex items-center hover:bg-gray-50/50 transition-colors group">
+                <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mr-4 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-gray-900 text-sm truncate group-hover:text-blue-600 transition-colors">{course.title}</h3>
+                  <p className="text-xs text-gray-500">{course.chapters.length} chapters • {course.student_count} students</p>
+                  
+                  {user.role === 'student' && (
+                    <div className="flex items-center mt-3 gap-3">
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          className="h-full bg-blue-600 rounded-full"
+                        ></motion.div>
                       </div>
-                    )}
-                  </div>
-                  {user.role === 'student' && cp && (
-                    <div className="ml-4 text-right shrink-0">
-                      <div className="text-sm font-extrabold text-amber-600">{cp.points} pts</div>
-                      <div className="text-xs text-gray-500">Rank #{cp.rank}</div>
+                      <span className="text-xs font-bold text-gray-900 shrink-0">{pct}%</span>
                     </div>
                   )}
-                </Link>
-              );
-            })}
-            {courses.length === 0 && (
-              <div className="p-12 text-center">
-                <p className="text-gray-400 font-medium">No courses yet. Explore our catalog!</p>
-                <Link to="/courses" className="mt-4 px-6 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold inline-block hover:bg-blue-100 transition-all">Explore</Link>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Discussions */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-8 py-5 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="font-bold text-gray-900">Recent Discussions</h2>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {recentDiscussions.map((disc: any) => (
-              <Link
-                key={disc.id}
-                to={`/courses/${disc.courseId}/discussions/${disc.id}`}
-                className="block p-6 hover:bg-gray-50/50 transition-colors cursor-pointer group"
-              >
-                <h3 className="font-bold text-gray-900 text-sm mb-1 line-clamp-1 group-hover:text-blue-600 transition-colors">{disc.title}</h3>
-                <p className="text-xs text-gray-500 line-clamp-1 mb-3">{disc.content}</p>
-                <div className="flex items-center justify-between text-[11px] text-gray-400 font-bold uppercase tracking-wider">
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-[8px]">{disc.author[0]}</div>
-                    <span>{disc.author}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> {disc.replies}</span>
-                    <span>{disc.date}</span>
-                  </div>
                 </div>
+                {user.role === 'student' && cp && (
+                  <div className="ml-4 text-right shrink-0">
+                    <div className="text-sm font-extrabold text-amber-600">{cp.points} pts</div>
+                    <div className="text-xs text-gray-500">Rank #{cp.rank}</div>
+                  </div>
+                )}
+                <ArrowRight className="w-4 h-4 text-gray-300 ml-4 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
               </Link>
-            ))}
-            {recentDiscussions.length === 0 && (
-              <div className="p-12 text-center text-gray-400 font-medium whitespace-nowrap">No discussions yet.</div>
-            )}
-          </div>
+            );
+          })}
+          {courses.filter(c => c.user_role !== null).length === 0 && (
+            <div className="p-12 text-center">
+              <p className="text-gray-400 font-medium">No courses yet. Explore our catalog!</p>
+              <Link to="/registrations" className="mt-4 px-6 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold inline-block hover:bg-blue-100 transition-all">Explore</Link>
+            </div>
+          )}
         </div>
       </div>
 

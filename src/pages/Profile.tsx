@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore, type User } from '../store/authStore';
 import { 
-  User as UserIcon, Mail, Clock, Calendar, Shield, Save, MessageCircle, ArrowLeft, BookOpen, Plus, Trash, Globe, MapPin, CheckCircle, Trophy, Star, Users, TrendingUp, Activity, ChevronRight, Phone, GraduationCap, Award, Book, Briefcase
+  User as UserIcon, Mail, Clock, Calendar, Shield, Save, MessageCircle, ArrowLeft, BookOpen, Plus, Trash, Globe, MapPin, CheckCircle, Star, Users, TrendingUp, Activity, ChevronRight, Phone, GraduationCap, Award, Book, Briefcase
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { StatCard } from '../components/Dashboard/StatCard';
@@ -268,15 +268,6 @@ export default function Profile() {
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Knowledge Points</p>
-                        <p className="text-3xl font-black">{profileUser.student?.points || 0}</p>
-                      </div>
-                      <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center">
-                        <Trophy className="w-6 h-6 text-blue-400" />
-                      </div>
-                    </div>
                     {profileUser.student?.gpa !== undefined && (
                       <div className="pt-4 border-t border-white/5">
                         <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Current GPA</p>
@@ -480,10 +471,9 @@ export default function Profile() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
         {profileUser.role === 'student' ? (
           <>
-            <StatCard icon={<Trophy />} label="Points" value={profileUser.student?.points || 0} color="amber" />
             <StatCard icon={<CheckCircle />} label="Topics" value={profileUser.stats?.completed_topics_count || 0} color="emerald" />
             <StatCard icon={<TrendingUp />} label="Avg Score" value={`${profileUser.stats?.average_quiz_score || 0}%`} color="blue" />
             <StatCard icon={<BookOpen />} label="Courses" value={profileUser.stats?.courses_enrolled_count || 0} color="indigo" />
@@ -493,7 +483,6 @@ export default function Profile() {
             <StatCard icon={<Users />} label="Students" value={profileUser.stats?.managed_students_count || 0} color="blue" />
             <StatCard icon={<BookOpen />} label="Courses" value={profileUser.stats?.total_courses_count || 0} color="indigo" />
             <StatCard icon={<Calendar />} label="Meetings" value={4} color="amber" onClick={() => navigate('/meetings')} />
-            <StatCard icon={<Star />} label="Rating" value={profileUser.rating || '5.0'} color="emerald" />
           </>
         )}
       </div>

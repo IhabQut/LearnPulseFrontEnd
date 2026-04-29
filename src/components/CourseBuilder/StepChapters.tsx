@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical, Edit3, Check, X } from 'lucide-react';
 import { type DraftChapter, type DraftTopic } from '../../types';
 
