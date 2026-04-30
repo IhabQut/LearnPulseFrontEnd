@@ -136,7 +136,7 @@ export default function Profile() {
   };
 
   const addOfficeHour = () => {
-    setEditOfficeHours([...editOfficeHours, { day: 'Monday', time: '10:00 AM - 11:00 AM' }]);
+    setEditOfficeHours([...editOfficeHours, { day: 'Monday', start: '10:00', end: '11:00' }]);
   };
 
   const removeOfficeHour = (index: number) => {
@@ -482,7 +482,7 @@ export default function Profile() {
           <>
             <StatCard icon={<Users />} label="Students" value={profileUser.stats?.managed_students_count || 0} color="blue" />
             <StatCard icon={<BookOpen />} label="Courses" value={profileUser.stats?.total_courses_count || 0} color="indigo" />
-            <StatCard icon={<Calendar />} label="Meetings" value={4} color="amber" onClick={() => navigate('/meetings')} />
+            <StatCard icon={<Calendar />} label="Meetings" value={profileUser.stats?.meetings_count || 0} color="amber" onClick={() => navigate('/meetings')} />
           </>
         )}
       </div>
@@ -690,23 +690,32 @@ export default function Profile() {
                 {(isEditing ? editOfficeHours : officeHoursParsed).map((slot: any, i: number) => (
                   <div key={i} className="bg-white rounded-xl p-3 border border-indigo-100 flex items-center justify-between group">
                     {isEditing ? (
-                      <div className="flex gap-2 w-full pr-8 relative">
+                      <div className="flex flex-col sm:flex-row gap-3 w-full pr-8 relative">
                         <select 
-                          className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold"
+                          className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-bold min-w-[100px]"
                           value={slot.day}
                           onChange={e => updateOfficeHour(i, 'day', e.target.value)}
                         >
                           {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => <option key={d}>{d}</option>)}
                         </select>
-                        <input 
-                          className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs font-medium"
-                          value={slot.time}
-                          onChange={e => updateOfficeHour(i, 'time', e.target.value)}
-                          placeholder="e.g. 10:00 AM - 12:00 PM"
-                        />
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="time"
+                            className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold"
+                            value={slot.start || '10:00'}
+                            onChange={e => updateOfficeHour(i, 'start', e.target.value)}
+                          />
+                          <span className="text-[10px] text-gray-400 font-bold uppercase">to</span>
+                          <input 
+                            type="time"
+                            className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold"
+                            value={slot.end || '12:00'}
+                            onChange={e => updateOfficeHour(i, 'end', e.target.value)}
+                          />
+                        </div>
                         <button 
                           onClick={() => removeOfficeHour(i)}
-                          className="absolute -right-1 top-1 text-red-500 opacity-0 group-hover:opacity-100 p-1"
+                          className="absolute -right-1 top-1 text-red-500 opacity-0 group-hover:opacity-100 p-1 hover:scale-110 transition-transform"
                         >
                           <Trash className="w-3.5 h-3.5" />
                         </button>
@@ -714,7 +723,9 @@ export default function Profile() {
                     ) : (
                       <>
                         <span className="font-bold text-gray-700">{slot.day}</span>
-                        <span className="text-indigo-600 font-semibold text-sm">{slot.time}</span>
+                        <span className="text-indigo-600 font-semibold text-sm">
+                          {slot.start && slot.end ? `${slot.start} - ${slot.end}` : (slot.time || 'Not set')}
+                        </span>
                       </>
                     )}
                   </div>

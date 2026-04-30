@@ -34,6 +34,7 @@ export interface User {
     courses_enrolled_count: number;
     managed_students_count: number;
     total_courses_count: number;
+    meetings_count: number;
     recent_activity: any[];
   };
 }

@@ -35,11 +35,6 @@ export default function MainLayout() {
 
     if (user?.role === "professor") {
       items.push({
-        to: "/admin",
-        icon: BookOpen,
-        label: "Admin Panel",
-      });
-      items.push({
         to: "/courses/create",
         icon: PlusCircle,
         label: "Create Course",

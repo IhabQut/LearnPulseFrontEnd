@@ -7,9 +7,7 @@ import CourseView from './pages/CourseView';
 import ChapterView from './pages/ChapterView';
 import DiscussionThread from './pages/DiscussionThread';
 import Profile from './pages/Profile';
-import ProfessorAdmin from './pages/ProfessorAdmin';
 import Quiz from './pages/Quiz';
-import AIAnalysis from './pages/AIAnalysis';
 import Meetings from './pages/Meetings';
 import Notifications from './pages/Notifications';
 import CreateCourse from './pages/CreateCourse';
@@ -49,8 +47,6 @@ function App() {
           <Route path="profile/:userId" element={<Profile />} />
           <Route path="meetings" element={<Meetings />} />
           <Route path="notifications" element={<Notifications />} />
-          <Route path="admin" element={<ProfessorAdmin />} />
-          <Route path="admin/analytics" element={<AIAnalysis />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

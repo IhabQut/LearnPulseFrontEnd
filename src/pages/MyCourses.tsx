@@ -21,7 +21,7 @@ export default function MyCourses() {
 
   useEffect(() => {
     if (user && user.role === 'student') {
-      apiFetch<{ course_id: string; status: string }[]>(`/api/users/${user.id}/enrollments`)
+      apiFetch<{ course_id: string; status: string }[]>(`/api/enrollments/users/${user.id}/enrollments`)
         .then((data) => {
           // Only approved enrollments
           setEnrollments(data.filter(e => e.status === 'approved').map(e => e.course_id));

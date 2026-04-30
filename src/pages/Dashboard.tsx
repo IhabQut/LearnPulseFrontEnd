@@ -91,20 +91,10 @@ export default function Dashboard() {
           </>
         )}
         {user.role === 'professor' && (
-          <>
-            <Link to="/admin" className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex items-center hover:bg-blue-50 hover:border-blue-200 transition-all group">
-              <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mr-4 group-hover:scale-110 transition-transform"><BarChart className="w-5 h-5" /></div>
-              <span className="text-sm font-extrabold text-gray-900">Admin Panel</span>
-            </Link>
-            <Link to="/admin/analytics" className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex items-center hover:bg-blue-50 hover:border-blue-200 transition-all group">
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mr-4 group-hover:scale-110 transition-transform"><BarChart className="w-5 h-5" /></div>
-              <span className="text-sm font-extrabold text-gray-900">AI Analytics</span>
-            </Link>
-            <Link to="/courses/create" className="bg-blue-600 rounded-2xl p-5 shadow-lg shadow-blue-100 flex items-center hover:bg-blue-700 transition-all group border border-blue-500">
-              <div className="w-12 h-12 rounded-xl bg-white/20 text-white flex items-center justify-center mr-4 group-hover:scale-110 transition-transform"><PlusCircle className="w-5 h-5" /></div>
-              <span className="text-sm font-extrabold text-white">Create Course</span>
-            </Link>
-          </>
+          <Link to="/courses/create" className="bg-blue-600 rounded-2xl p-5 shadow-lg shadow-blue-100 flex items-center hover:bg-blue-700 transition-all group border border-blue-500">
+            <div className="w-12 h-12 rounded-xl bg-white/20 text-white flex items-center justify-center mr-4 group-hover:scale-110 transition-transform"><PlusCircle className="w-5 h-5" /></div>
+            <span className="text-sm font-extrabold text-white">Create Course</span>
+          </Link>
         )}
       </div>
 
