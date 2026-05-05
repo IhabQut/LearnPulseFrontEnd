@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Navigate, Link, useSearchParams } from 'react-router-dom';
+import { Navigate, Link, useSearchParams, useParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useCourseStore } from '../store/courseStore';
 import { BrainCircuit, AlertTriangle, TrendingDown, CheckCircle2, Bot, ArrowLeft, RefreshCw } from 'lucide-react';
@@ -32,8 +32,8 @@ export default function AIAnalysis() {
   const { user } = useAuthStore();
   const { courses } = useCourseStore();
   const [searchParams] = useSearchParams();
-  
-  const [selectedCourseId, setSelectedCourseId] = useState(searchParams.get('course') || '');
+  const { courseId } = useParams();
+  const [selectedCourseId, setSelectedCourseId] = useState(courseId || searchParams.get('course') || '');
   const [report, setReport] = useState<AIReportData | null>(null);
   const [loading, setLoading] = useState(false);
 

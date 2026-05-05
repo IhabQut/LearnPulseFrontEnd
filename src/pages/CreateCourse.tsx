@@ -29,7 +29,7 @@ const categories = ['Computer Science', 'Business', 'Design', 'Marketing', 'Lang
 export default function CreateCourse() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { createCourse, bulkSaveChapters, saveGrading, saveSemesterPlan } = useCourseStore();
+  const { createCourse, saveTextbook, bulkSaveChapters, saveGrading, saveSemesterPlan } = useCourseStore();
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({ title: '', description: '', category: 'Computer Science', image: '' });
@@ -81,6 +81,7 @@ export default function CreateCourse() {
         image: formData.image || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80',
       }, user.id);
 
+      if (file) await saveTextbook(courseId, file.name, file.name.split('.').pop() || 'pdf');
       if (chapters.length > 0) await bulkSaveChapters(courseId, chapters);
       if (gradingComponents.length > 0) await saveGrading(courseId, gradingComponents);
       if (semesterWeeks.length > 0) await saveSemesterPlan(courseId, semesterWeeks);

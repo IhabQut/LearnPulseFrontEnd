@@ -32,26 +32,11 @@ export default function Register() {
   const isFormValid = name.trim().length > 0 && email.includes('@') && password.length >= 6;
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: 'white' }}>
 
-      {/* Animated background orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute w-96 h-96 rounded-full opacity-20 animate-pulse" style={{ background: 'radial-gradient(circle, #8b5cf6, transparent)', top: '-10%', right: '-5%' }} />
-        <div className="absolute w-80 h-80 rounded-full opacity-15 animate-pulse" style={{ background: 'radial-gradient(circle, #3b82f6, transparent)', bottom: '-8%', left: '-3%', animationDelay: '1s' }} />
-        <div className="absolute w-64 h-64 rounded-full opacity-10 animate-pulse" style={{ background: 'radial-gradient(circle, #10b981, transparent)', top: '50%', left: '15%', animationDelay: '2s' }} />
-      </div>
 
       {/* Register Card */}
       <div className="relative z-10 w-full max-w-md mx-4">
-
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style={{ background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)' }}>
-            <Sparkles className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Join Learn Pulse</h1>
-          <p className="text-slate-400 mt-2 text-sm">Create your account and start your journey.</p>
-        </div>
 
         {/* Card */}
         <div className="rounded-2xl p-8 shadow-2xl border" style={{ background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(20px)', borderColor: 'rgba(148, 163, 184, 0.1)' }}>
@@ -206,11 +191,6 @@ export default function Register() {
           </Link>
 
         </div>
-
-        {/* Footer */}
-        <p className="text-center mt-6 text-xs text-slate-600">
-          Your data is encrypted and securely stored
-        </p>
 
       </div>
     </div>

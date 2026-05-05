@@ -3,6 +3,7 @@ export type Topic = {
   title: string;
   description: string;
   completed: boolean;
+  is_open?: boolean;
 };
 
 export type Chapter = {
@@ -10,6 +11,7 @@ export type Chapter = {
   title: string;
   summary: string;
   topics: Topic[];
+  is_final_quiz_open?: boolean;
 };
 
 export type Material = {

@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { BookOpen, FileText, MessageSquare, Trophy, ChevronRight, ChevronUp, Download, CheckCircle2, ClipboardList, Users, Search, UserMinus, Mail, Award, TrendingUp, X, Video, ExternalLink, Sparkles, Settings, Trash2, ToggleLeft, ToggleRight, Check, Clock, Plus } from 'lucide-react';
+import { BookOpen, FileText, MessageSquare, Trophy, ChevronRight, ChevronUp, Download, CheckCircle2, ClipboardList, Users, Search, UserMinus, Mail, Award, TrendingUp, X, Video, ExternalLink, Sparkles, Settings, Trash2, ToggleLeft, ToggleRight, Check, Clock, Plus, BarChart3, CalendarDays } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDiscussionStore } from '../store/discussionStore';
 import { useCourseStore } from '../store/courseStore';
 import { apiFetch } from '../lib/api';
 import { useDebounce } from '../hooks/useDebounce';
 
-type Tab = 'chapters' | 'materials' | 'discussions' | 'leaderboard' | 'quizzes' | 'users' | 'ai-insights';
+type Tab = 'chapters' | 'materials' | 'discussions' | 'leaderboard' | 'quizzes' | 'users' | 'ai-insights' | 'grading' | 'schedule';
 
 type LeaderboardEntry = { rank: number; student: string; points: number; id: string; };
 type QuizInfo = { id: string; title: string; quiz_type: string; topic_id?: string; chapter_id?: string; questions: any[]; };
@@ -17,10 +17,10 @@ type EnrolledUser = {
   name: string;
   email: string;
   completedTopics: number;
-  totalTopics: number;
   points: number;
   joinedAt: string;
-  role: string;
+  role: string;           // enrollment role: student/viewer/instructor/owner
+  user_role: string;      // system role: student/professor
   enrollment_id: string;
 };
 
@@ -67,6 +67,8 @@ export default function CourseView() {
   const [discussionsPage, setDiscussionsPage] = useState(1);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [gradingData, setGradingData] = useState<GradingComponent[]>([]);
+  const [scheduleData, setScheduleData] = useState<SemesterWeekDraft[]>([]);
   
   // Edit course state
   const [editTitle, setEditTitle] = useState('');
@@ -106,6 +108,14 @@ export default function CourseView() {
     apiFetch<any[]>(`/api/courses/${course.id}/enrollment-requests`)
       .then(setPendingRequests)
       .finally(() => setUsersLoading(false));
+
+    // Fetch Grading and Schedule
+    apiFetch<GradingComponent[]>(`/api/courses/${course.id}/grading`)
+      .then(setGradingData)
+      .catch(() => {});
+    apiFetch<SemesterWeekDraft[]>(`/api/courses/${course.id}/semester-plan`)
+      .then(setScheduleData)
+      .catch(() => {});
   }, [activeTab, course?.id, user?.role]);
 
   useEffect(() => {
@@ -295,11 +305,12 @@ export default function CourseView() {
   const tabs = [
     { id: 'chapters', label: 'Chapters', icon: BookOpen },
     { id: 'materials', label: 'Materials', icon: FileText },
+    { id: 'grading', label: 'Grading', icon: BarChart3 },
+    { id: 'schedule', label: 'Schedule', icon: CalendarDays },
     { id: 'quizzes', label: 'Quizzes', icon: ClipboardList },
     { id: 'discussions', label: 'Discussions', icon: MessageSquare },
     { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
     { id: 'users', label: 'Users', icon: Users, professorOnly: true },
-    { id: 'ai-insights', label: 'AI Insights', icon: TrendingUp, professorOnly: true },
   ];
 
   return (
@@ -993,14 +1004,14 @@ export default function CourseView() {
                   </div>
                 </div>
 
-                {/* Top scorer */}
+              {/* Top scorer - only count actual students */}
                 <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-center gap-3 col-span-2 sm:col-span-1">
                   <div className="p-2 bg-amber-100 rounded-lg">
                     <Award className="w-5 h-5 text-amber-600" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-2xl font-black text-amber-700 truncate">
-                      {[...users].sort((a, b) => b.points - a.points)[0]?.name.split(' ')[0] ?? '—'}
+                      {([...users].filter(u => u.user_role === 'student' || u.role === 'student').sort((a, b) => b.points - a.points)[0]?.name.split(' ')[0]) ?? '—'}
                     </p>
                     <p className="text-xs font-bold text-amber-500 uppercase tracking-wide">Top Scorer</p>
                   </div>
@@ -1137,14 +1148,13 @@ export default function CourseView() {
                               {enrolledUser.completedTopics}/{totalTopics} topics
                             </p>
                           </td>
-
-                          {/* Points */}
-                          <td className="px-6 py-4 text-right hidden md:table-cell">
-                            <span className="font-black text-gray-900 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 text-xs">
-                              {enrolledUser.points} pts
-                            </span>
-                          </td>
-
+                              {/* points */}
+                            <td className="px-6 py-4 text-right hidden md:table-cell">
+                              <span className="font-black text-gray-900 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 text-xs">
+                                {enrolledUser.points ?? 0} pts
+                              </span>
+                            </td>
+                    
                           {/* Actions */}
                           <td className="px-6 py-4 text-right">
                             {unenrollConfirm === enrolledUser.id ? (
@@ -1201,6 +1211,54 @@ export default function CourseView() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        
+        {/* ── Schedule Tab ── */}
+        {activeTab === 'schedule' && (
+          <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-500">
+             <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-2xl font-black text-gray-900 flex items-center gap-3">
+                    <CalendarDays className="w-8 h-8 text-blue-600" />
+                    Course Schedule
+                  </h3>
+                  <span className="px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-black uppercase tracking-widest border border-blue-100">
+                    {scheduleData.length} Weeks Total
+                  </span>
+                </div>
+                <div className="space-y-6">
+                  {scheduleData.map((week, idx) => (
+                    <div key={idx} className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 flex flex-col md:flex-row gap-6 hover:bg-white hover:shadow-xl hover:shadow-blue-500/5 transition-all group">
+                      <div className="w-20 h-20 bg-white border border-blue-100 text-blue-600 rounded-2xl flex flex-col items-center justify-center flex-shrink-0 shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        <span className="text-[10px] font-black uppercase tracking-tighter">Week</span>
+                        <span className="text-3xl font-black">{week.week_num}</span>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-xl font-black text-gray-900 mb-3 group-hover:text-blue-600 transition-colors">{week.chapter_title}</h4>
+                        <div className="flex flex-wrap gap-2 mb-4">
+                           {JSON.parse(week.topics_json || '[]').map((t: string, i: number) => (
+                             <span key={i} className="px-3 py-1 bg-white border border-gray-200 rounded-xl text-[10px] font-black text-gray-500 uppercase tracking-tight">{t}</span>
+                           ))}
+                        </div>
+                        {week.notes && (
+                          <div className="flex items-start gap-2 text-sm text-gray-400 font-medium italic bg-white/50 p-3 rounded-xl border border-gray-50">
+                            <Sparkles className="w-4 h-4 text-blue-300 flex-shrink-0 mt-0.5" />
+                            {week.notes}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {scheduleData.length === 0 && (
+                    <div className="py-20 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                      <CalendarDays className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+                      <p className="text-gray-400 font-bold italic">No schedule defined yet.</p>
+                    </div>
+                  )}
+                </div>
+             </div>
           </div>
         )}
 

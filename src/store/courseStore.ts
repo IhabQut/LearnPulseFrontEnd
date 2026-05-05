@@ -21,6 +21,7 @@ interface CourseState {
   fetchAIReport: (courseId: string) => Promise<any>;
   generateChapterSummary: (chapterId: string) => Promise<string>;
   // AI Course Builder
+  saveTextbook: (courseId: string, filename: string, fileType: string) => Promise<void>;
   bulkSaveChapters: (courseId: string, chapters: DraftChapter[]) => Promise<void>;
   saveGrading: (courseId: string, components: GradingComponent[]) => Promise<void>;
   fetchGrading: (courseId: string) => Promise<GradingComponent[]>;
@@ -43,8 +44,7 @@ export const useCourseStore = create<CourseState>((set) => ({
 
   markTopicDone: async (courseId, chapterId, topicId) => {
     try {
-      const userId = useAuthStore.getState().user?.id ?? 'u1';
-      await apiFetch(`/api/topics/${topicId}/complete?user_id=${encodeURIComponent(userId)}`, { method: 'POST' });
+      await apiFetch(`/api/topics/${topicId}/complete`, { method: 'POST' });
       set((state) => ({
         courses: state.courses.map(course => {
           if (course.id !== courseId) return course;
@@ -258,6 +258,13 @@ export const useCourseStore = create<CourseState>((set) => ({
   },
 
   // ─── AI Course Builder ───────────────────────────────────────────
+
+  saveTextbook: async (courseId, filename, fileType) => {
+    await apiFetch(`/api/courses/${courseId}/textbook`, {
+      method: 'POST',
+      body: JSON.stringify({ filename, file_type: fileType, status: 'done' })
+    });
+  },
 
   bulkSaveChapters: async (courseId, chapters) => {
     await apiFetch(`/api/courses/${courseId}/chapters/bulk`, {

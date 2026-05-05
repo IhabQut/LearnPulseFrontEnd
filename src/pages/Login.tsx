@@ -33,15 +33,6 @@ export default function Login() {
       {/* Login Card */}
       <div className="relative z-10 w-full max-w-md mx-4">
 
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}>
-            <Sparkles className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Learn Pulse</h1>
-          <p className="text-slate-400 mt-2 text-sm">Welcome back! Sign in to continue learning.</p>
-        </div>
-
         {/* Card */}
         <div className="rounded-2xl p-8 shadow-2xl border" style={{ background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(20px)', borderColor: 'rgba(148, 163, 184, 0.1)' }}>
 
@@ -140,11 +131,6 @@ export default function Login() {
           </Link>
 
         </div>
-
-        {/* Footer */}
-        <p className="text-center mt-6 text-xs text-slate-600">
-          Secure login powered by JWT authentication
-        </p>
 
       </div>
     </div>

@@ -259,7 +259,7 @@ export default function ChapterView() {
         
         {chapter.topics.map((topic, index) => {
           const isExpanded = expandedTopic === topic.id;
-          const isLocked = index > 0 && !chapter.topics[index - 1].completed && user?.role === 'student';
+          const isLocked = (!topic.is_open || (index > 0 && !chapter.topics[index - 1].completed)) && user?.role === 'student';
 
           return (
             <div 
@@ -290,6 +290,7 @@ export default function ChapterView() {
                        {topic.completed && <span className="text-xs font-bold text-emerald-600 tracking-wide uppercase">Completed</span>}
                        {isLocked && <span className="text-xs font-bold text-gray-500 tracking-wide uppercase flex items-center"><Lock className="w-3 h-3 mr-1" /> Locked</span>}
                        {!topic.completed && !isLocked && <span className="text-xs font-bold text-blue-600 tracking-wide uppercase">Up Next</span>}
+                       {!topic.completed && !isLocked && !topic.is_open && user?.role === 'student' && <span className="text-xs font-bold text-amber-500 tracking-wide uppercase ml-2">Waiting for professor</span>}
                     </div>
                   </div>
                 </div>
@@ -344,6 +345,22 @@ export default function ChapterView() {
                        <div className="absolute bottom-4 left-4 text-sm font-bold opacity-80">Video Lesson: {topic.title}</div>
                     </div>
                     
+                    {user?.role === 'professor' && (
+                      <div className="flex items-center justify-between bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-6 rounded-full transition-colors cursor-pointer relative ${topic.is_open ? 'bg-emerald-500' : 'bg-gray-300'}`} onClick={() => updateTopic(topic.id, { is_open: !topic.is_open })}>
+                            <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${topic.is_open ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                          </div>
+                          <span className="text-sm font-bold text-blue-900">
+                            {topic.is_open ? 'Topic is Open' : 'Topic is Closed'}
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-blue-600">
+                          {topic.is_open ? 'Students can access the quiz and mark done.' : 'Open this topic to allow students access.'}
+                        </p>
+                      </div>
+                    )}
+                    
                     <div className="flex items-center justify-between mt-6">
                       {/* Topic Quiz button */}
                       {topic.completed && (
@@ -378,20 +395,14 @@ export default function ChapterView() {
                         <div className="flex-1"></div>
                       )}
                       
-                      {!topic.completed && (
-                        <div>
-                          {user?.role === 'professor' ? (
-                            <button 
-                              onClick={() => markTopicDone(course.id, chapter.id, topic.id)}
-                              className="flex items-center bg-blue-600 text-white font-bold py-2.5 px-6 rounded-xl hover:bg-blue-700 shadow-sm transition-all hover:-translate-y-0.5"
-                            >
-                              <CheckCircle2 className="w-5 h-5 mr-2" />
-                              Mark Topic Done
-                            </button>
-                          ) : (
-                            <p className="text-sm font-bold text-gray-400 italic">Waiting for professor to mark this topic as done.</p>
-                          )}
-                        </div>
+                      {!topic.completed && user?.role === 'student' && (
+                        <button 
+                          onClick={() => markTopicDone(course.id, chapter.id, topic.id)}
+                          className="flex items-center bg-blue-600 text-white font-bold py-2.5 px-6 rounded-xl hover:bg-blue-700 shadow-sm transition-all hover:-translate-y-0.5"
+                        >
+                          <CheckCircle2 className="w-5 h-5 mr-2" />
+                          Mark as Done
+                        </button>
                       )}
                     </div>
                 </div>
@@ -402,27 +413,29 @@ export default function ChapterView() {
       </div>
 
       {/* Chapter Quiz Hero Box */}
-      <div className={`mt-8 relative overflow-hidden rounded-2xl p-8 border ${allTopicsCompleted ? 'bg-gradient-to-br from-indigo-600 to-purple-700 text-white border-transparent' : 'bg-gray-50 border-gray-200 text-gray-500'} shadow-sm transition-all`}>
-        {!allTopicsCompleted && (
+      <div className={`mt-8 relative overflow-hidden rounded-2xl p-8 border ${(allTopicsCompleted && chapter.is_final_quiz_open) || user?.role === 'professor' ? 'bg-gradient-to-br from-indigo-600 to-purple-700 text-white border-transparent' : 'bg-gray-50 border-gray-200 text-gray-500'} shadow-sm transition-all`}>
+        {(!allTopicsCompleted || !chapter.is_final_quiz_open) && user?.role === 'student' && (
            <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
              <Lock className="w-8 h-8 text-gray-400 mb-2" />
-             <p className="font-bold text-gray-500 uppercase tracking-widest text-sm text-center">Complete all topics<br/>to unlock final quiz</p>
+             <p className="font-bold text-gray-500 uppercase tracking-widest text-sm text-center">
+               {!allTopicsCompleted ? 'Complete all topics to unlock final quiz' : 'Waiting for professor to open final quiz'}
+             </p>
            </div>
         )}
         <div className="relative z-0 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-black mb-2 flex items-center">
-              <Award className={`w-6 h-6 mr-3 ${allTopicsCompleted ? 'text-yellow-400' : 'text-gray-400'}`} />
+              <Award className={`w-6 h-6 mr-3 ${(allTopicsCompleted && chapter.is_final_quiz_open) || user?.role === 'professor' ? 'text-yellow-400' : 'text-gray-400'}`} />
               Final Chapter Quiz
             </h2>
-            <p className={allTopicsCompleted ? 'text-indigo-100 font-medium' : 'text-gray-500 font-medium'}>
+            <p className={(allTopicsCompleted && chapter.is_final_quiz_open) || user?.role === 'professor' ? 'text-indigo-100 font-medium' : 'text-gray-500 font-medium'}>
               Test your knowledge on everything covered in this chapter.
             </p>
           </div>
           <Link 
-             to={allTopicsCompleted && course.user_role !== 'viewer' ? `/courses/${course.id}/chapters/${chapter.id}/quiz?from=${encodeURIComponent(window.location.pathname)}` : "#"}
+             to={((allTopicsCompleted && chapter.is_final_quiz_open) || user?.role === 'professor') && course.user_role !== 'viewer' ? `/courses/${course.id}/chapters/${chapter.id}/quiz?from=${encodeURIComponent(window.location.pathname)}` : "#"}
              className={`px-8 py-3.5 rounded-xl font-bold text-lg shadow-sm transition-all flex items-center ${
-               allTopicsCompleted && course.user_role !== 'viewer'
+               ((allTopicsCompleted && chapter.is_final_quiz_open) || user?.role === 'professor') && course.user_role !== 'viewer'
                  ? 'bg-white text-indigo-700 hover:bg-indigo-50 hover:shadow-md hover:-translate-y-0.5' 
                  : 'bg-gray-200 text-gray-400 cursor-not-allowed pointer-events-none'
              }`}
@@ -431,13 +444,22 @@ export default function ChapterView() {
             <ChevronRight className="w-5 h-5 ml-2" />
           </Link>
           {user?.role === 'professor' && (
-            <button 
-              onClick={() => handleOpenQuizManager('chapter', chapter.id)}
-              className="ml-4 px-6 py-3.5 rounded-xl font-bold text-lg bg-indigo-500 text-white hover:bg-indigo-400 transition-all flex items-center border border-indigo-400"
-            >
-              <Edit3 className="w-5 h-5 mr-2" />
-              Manage Final Quiz
-            </button>
+            <div className="flex flex-col gap-2 ml-4">
+              <button 
+                onClick={() => handleOpenQuizManager('chapter', chapter.id)}
+                className="px-6 py-3 rounded-xl font-bold text-sm bg-indigo-500 text-white hover:bg-indigo-400 transition-all flex items-center border border-indigo-400"
+              >
+                <Edit3 className="w-4 h-4 mr-2" />
+                Manage Quiz
+              </button>
+              <button 
+                onClick={() => updateChapter(chapter.id, { is_final_quiz_open: !chapter.is_final_quiz_open })}
+                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center border ${chapter.is_final_quiz_open ? 'bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600' : 'bg-indigo-800 text-indigo-200 border-indigo-500 hover:bg-indigo-700'}`}
+              >
+                <Lock className={`w-4 h-4 mr-2 ${chapter.is_final_quiz_open ? 'hidden' : ''}`} />
+                {chapter.is_final_quiz_open ? 'Quiz Opened' : 'Open Quiz'}
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -650,6 +672,23 @@ export default function ChapterView() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+      
+      {/* AI Insights Button for Professor */}
+      {user?.role === 'professor' && chapter.topics.length > 0 && chapter.topics.every(t => t.is_open) && (
+        <div className="mt-12 bg-blue-50 border border-blue-100 rounded-3xl p-8 flex flex-col items-center justify-center text-center shadow-sm">
+          <Sparkles className="w-10 h-10 text-blue-600 mb-4" />
+          <h2 className="text-2xl font-black text-gray-900 mb-2">Analyze Class Performance</h2>
+          <p className="text-gray-600 font-medium mb-6 max-w-md">
+            Generate AI-powered insights for this class to see which topics are struggling and who is falling behind.
+          </p>
+          <Link 
+            to={`/courses/${course.id}/ai-insights?chapter=${chapter.id}`}
+            className="bg-blue-600 text-white font-black py-4 px-8 rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-[1.02] transition active:scale-[0.98] flex items-center"
+          >
+            Generate AI Course Insights <ChevronRight className="w-5 h-5 ml-2" />
+          </Link>
         </div>
       )}
 

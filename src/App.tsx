@@ -13,6 +13,7 @@ import Notifications from './pages/Notifications';
 import CreateCourse from './pages/CreateCourse';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import AIAnalysis from './pages/AIAnalysis';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAuthStore } from './store/authStore';
 
@@ -47,6 +48,7 @@ function App() {
           <Route path="profile/:userId" element={<Profile />} />
           <Route path="meetings" element={<Meetings />} />
           <Route path="notifications" element={<Notifications />} />
+          <Route path="courses/:courseId/ai-insights" element={<AIAnalysis />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

@@ -82,7 +82,7 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 pb-12 px-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon={<BookOpen className="w-5 h-5" />} label="Courses" value={courses.length} color="blue" 
+        <StatCard icon={<BookOpen className="w-5 h-5" />} label="Courses" value={courses.filter(c => c.user_role !== null).length} color="blue" 
         onClick={() => navigate('/courses')}/>
         {user.role === 'student' && (
           <>
@@ -241,7 +241,7 @@ export default function Dashboard() {
       <PointsDialog 
         isOpen={showPointsDialog} 
         onClose={() => setShowPointsDialog(false)} 
-        courses={courses}
+        courses={courses.filter(c => c.user_role !== null)}
         coursePoints={coursePoints}
       />
     </div>
