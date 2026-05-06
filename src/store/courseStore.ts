@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { type Course, type DraftChapter, type GradingComponent, type SemesterWeekDraft } from '../types';
+import { type Course, type DraftChapter, type GradingComponent, type SemesterWeekDraft, type CourseSyllabus } from '../types';
 import { apiFetch } from '../lib/api';
 import { useAuthStore } from './authStore';
 
@@ -27,6 +27,8 @@ interface CourseState {
   fetchGrading: (courseId: string) => Promise<GradingComponent[]>;
   saveSemesterPlan: (courseId: string, weeks: SemesterWeekDraft[]) => Promise<void>;
   fetchSemesterPlan: (courseId: string) => Promise<SemesterWeekDraft[]>;
+  saveSyllabus: (courseId: string, syllabus: CourseSyllabus) => Promise<void>;
+  fetchSyllabus: (courseId: string) => Promise<CourseSyllabus | null>;
 }
 
 export const useCourseStore = create<CourseState>((set) => ({
@@ -304,6 +306,21 @@ export const useCourseStore = create<CourseState>((set) => ({
       return await apiFetch<SemesterWeekDraft[]>(`/api/courses/${courseId}/semester-plan`);
     } catch {
       return [];
+    }
+  },
+  
+  saveSyllabus: async (courseId, syllabus) => {
+    await apiFetch(`/api/courses/${courseId}/syllabus`, {
+      method: 'POST',
+      body: JSON.stringify(syllabus),
+    });
+  },
+
+  fetchSyllabus: async (courseId) => {
+    try {
+      return await apiFetch<CourseSyllabus>(`/api/courses/${courseId}/syllabus`);
+    } catch {
+      return null;
     }
   },
 }));

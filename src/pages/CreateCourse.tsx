@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ImageIcon, Check, ChevronRight, ChevronLeft, Layout, Sparkles,
-  BookOpen, FileText, ListChecks, BarChart3, CalendarDays, Eye
+  BookOpen, FileText, ListChecks, BarChart3, CalendarDays, Eye, ScrollText
 } from 'lucide-react';
 import { useCourseStore } from '../store/courseStore';
 import { useAuthStore } from '../store/authStore';
@@ -13,6 +13,8 @@ import StepTextbook from '../components/CourseBuilder/StepTextbook';
 import StepChapters from '../components/CourseBuilder/StepChapters';
 import StepGrading from '../components/CourseBuilder/StepGrading';
 import StepSemesterPlan from '../components/CourseBuilder/StepSemesterPlan';
+import StepSyllabus from '../components/CourseBuilder/StepSyllabus';
+import { type CourseSyllabus } from '../types';
 
 const STEPS = [
   { label: 'Basics', icon: BookOpen },
@@ -21,6 +23,7 @@ const STEPS = [
   { label: 'Chapters', icon: ListChecks },
   { label: 'Grading', icon: BarChart3 },
   { label: 'Schedule', icon: CalendarDays },
+  { label: 'Syllabus', icon: ScrollText },
   { label: 'Review', icon: Eye },
 ];
 
@@ -29,7 +32,7 @@ const categories = ['Computer Science', 'Business', 'Design', 'Marketing', 'Lang
 export default function CreateCourse() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { createCourse, saveTextbook, bulkSaveChapters, saveGrading, saveSemesterPlan } = useCourseStore();
+  const { createCourse, saveTextbook, bulkSaveChapters, saveGrading, saveSemesterPlan, saveSyllabus } = useCourseStore();
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({ title: '', description: '', category: 'Computer Science', image: '' });
@@ -55,6 +58,21 @@ export default function CreateCourse() {
   const [totalWeeks, setTotalWeeks] = useState(14);
   const [semesterWeeks, setSemesterWeeks] = useState<SemesterWeekDraft[]>([]);
   const [genPlan, setGenPlan] = useState(false);
+
+  // Syllabus
+  const [syllabus, setSyllabus] = useState<CourseSyllabus>({
+    course_code: '',
+    semester: '',
+    instructor_name: user?.name || '',
+    instructor_email: user?.email || '',
+    instructor_phone: '',
+    office_hours: '',
+    class_time_location: '',
+    description: '',
+    objectives: [],
+    textbooks: [],
+    learning_outcomes: [],
+  });
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -83,6 +101,7 @@ export default function CreateCourse() {
 
       if (file) await saveTextbook(courseId, file.name, file.name.split('.').pop() || 'pdf');
       if (chapters.length > 0) await bulkSaveChapters(courseId, chapters);
+      if (syllabus.course_code) await saveSyllabus(courseId, syllabus);
       if (gradingComponents.length > 0) await saveGrading(courseId, gradingComponents);
       if (semesterWeeks.length > 0) await saveSemesterPlan(courseId, semesterWeeks);
 
@@ -216,8 +235,20 @@ export default function CreateCourse() {
               totalWeeks={totalWeeks} setTotalWeeks={setTotalWeeks} generating={genPlan} setGenerating={setGenPlan} />
           )}
 
-          {/* Step 7: Review */}
+          {/* Step 7: Syllabus */}
           {step === 7 && (
+            <StepSyllabus 
+              syllabus={syllabus} 
+              setSyllabus={setSyllabus} 
+              chapters={chapters}
+              grading={gradingComponents}
+              weeks={semesterWeeks}
+              courseDescription={formData.description}
+            />
+          )}
+
+          {/* Step 8: Review */}
+          {step === 8 && (
             <div className="space-y-6">
               <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
                 <Layout className="w-8 h-8 text-blue-600 flex-shrink-0" />
@@ -227,6 +258,7 @@ export default function CreateCourse() {
                 <Row label="Title" value={formData.title} />
                 <Row label="Category" value={formData.category} />
                 <Row label="Description" value={formData.description} />
+                <Row label="Syllabus Code" value={syllabus.course_code || 'N/A'} />
                 <Row label="Textbook" value={file ? file.name : 'None uploaded'} />
                 <Row label="Chapters" value={`${chapters.length} chapters`} />
                 <Row label="Grading" value={`${gradingComponents.length} components (${totalWeight}%)`} />
@@ -241,7 +273,7 @@ export default function CreateCourse() {
               className="bg-gray-100 text-gray-700 font-bold py-4 rounded-2xl hover:bg-gray-200 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
               <ChevronLeft className="w-5 h-5" /> Back
             </button>
-            {step < 7 ? (
+            {step < 8 ? (
               <button onClick={() => setStep(step + 1)} disabled={!canNext()}
                 className="bg-gray-900 text-white font-bold py-4 rounded-2xl hover:bg-gray-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
                 {STEPS[step]?.label || 'Next'} <ChevronRight className="w-5 h-5" />

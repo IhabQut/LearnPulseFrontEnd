@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical, Edit3, Check, X } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical, Pencil, Check, X } from 'lucide-react';
 import { type DraftChapter, type DraftTopic } from '../../types';
 
 interface Props {
@@ -80,7 +80,7 @@ export default function StepChapters({ chapters, setChapters }: Props) {
               <span className="font-bold text-gray-900 flex-1 cursor-pointer" onClick={() => setExpanded(expanded === idx ? null : idx)}>{ch.title}</span>
             )}
             <div className="flex items-center gap-1">
-              <button onClick={() => startEdit(idx)} className="p-1.5 hover:bg-white rounded-lg transition-all"><Edit3 className="w-3.5 h-3.5 text-gray-400" /></button>
+              <button onClick={() => startEdit(idx)} className="p-1.5 hover:bg-white rounded-lg transition-all"><Pencil className="w-3.5 h-3.5 text-gray-400" /></button>
               <button onClick={() => moveChapter(idx, -1)} disabled={idx === 0} className="p-1.5 hover:bg-white rounded-lg transition-all disabled:opacity-30"><ChevronUp className="w-3.5 h-3.5 text-gray-400" /></button>
               <button onClick={() => moveChapter(idx, 1)} disabled={idx === chapters.length - 1} className="p-1.5 hover:bg-white rounded-lg transition-all disabled:opacity-30"><ChevronDown className="w-3.5 h-3.5 text-gray-400" /></button>
               <button onClick={() => removeChapter(idx)} className="p-1.5 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>

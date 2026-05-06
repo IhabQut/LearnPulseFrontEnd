@@ -16,7 +16,7 @@ function generateMockPlan(chapters: DraftChapter[], numWeeks: number): SemesterW
   for (let w = 1; w <= numWeeks; w++) {
     const chIdx = Math.min(Math.floor(((w - 1) / numWeeks) * chapters.length), chapters.length - 1);
     const ch = chapters[chIdx];
-    const topicNames = ch ? ch.topics.map(t => t.title) : [];
+    const topics = ch ? ch.topics.map(t => ({ title: t.title })) : [];
     let notes = '';
     if (w === 1) notes = 'Course introduction & syllabus review';
     else if (w === numWeeks) notes = 'Final review & exam preparation';
@@ -25,7 +25,7 @@ function generateMockPlan(chapters: DraftChapter[], numWeeks: number): SemesterW
     plan.push({
       week_num: w,
       chapter_title: ch ? ch.title : `Week ${w}`,
-      topics_json: JSON.stringify(topicNames),
+      topics,
       notes,
     });
   }
@@ -41,7 +41,7 @@ export default function StepSemesterPlan({ chapters, weeks, setWeeks, totalWeeks
     }, 1800);
   };
 
-  const updateWeek = (idx: number, field: keyof SemesterWeekDraft, val: string) => {
+  const updateWeek = (idx: number, field: keyof SemesterWeekDraft, val: any) => {
     const arr = [...weeks];
     arr[idx] = { ...arr[idx], [field]: val };
     setWeeks(arr);
@@ -81,8 +81,6 @@ export default function StepSemesterPlan({ chapters, weeks, setWeeks, totalWeeks
         <>
           <div className="grid gap-3">
             {weeks.map((w, idx) => {
-              let topics: string[] = [];
-              try { topics = JSON.parse(w.topics_json); } catch { topics = []; }
               return (
                 <div key={idx} className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md transition-all">
                   <div className="flex items-start gap-3">
@@ -95,10 +93,10 @@ export default function StepSemesterPlan({ chapters, weeks, setWeeks, totalWeeks
                         onChange={e => updateWeek(idx, 'chapter_title', e.target.value)}
                         className="w-full font-bold text-gray-900 bg-transparent outline-none focus:bg-gray-50 rounded-lg px-2 py-0.5 -ml-2"
                       />
-                      {topics.length > 0 && (
+                      {(w.topics || []).length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
-                          {topics.map((t, ti) => (
-                            <span key={ti} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg font-medium">{t}</span>
+                          {w.topics.map((t, ti) => (
+                            <span key={ti} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg font-medium">{t.title}</span>
                           ))}
                         </div>
                       )}

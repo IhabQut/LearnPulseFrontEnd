@@ -21,6 +21,28 @@ export type Material = {
   url: string;
 };
 
+export type Objective = { text: string };
+export type Textbook = { title: string; author?: string };
+export type Outcome = { text: string };
+export type WeekTopic = { title: string };
+
+export type CourseSyllabus = {
+  id?: string;
+  course_id?: string;
+  course_code: string;
+  semester: string;
+  instructor_name: string;
+  instructor_email: string;
+  instructor_phone: string;
+  office_hours: string;
+  class_time_location: string;
+  zoom_link?: string;
+  description: string;
+  objectives: Objective[];
+  textbooks: Textbook[];
+  learning_outcomes: Outcome[];
+};
+
 export type Course = {
   id: string;
   title: string;
@@ -34,6 +56,7 @@ export type Course = {
   user_role?: string;
   chapters: Chapter[];
   materials: Material[];
+  syllabus?: CourseSyllabus;
 };
 
 // ─── AI Course Builder ───────────────────────────────────────────
@@ -56,8 +79,9 @@ export type GradingComponent = {
 };
 
 export type SemesterWeekDraft = {
+  id?: string;
   week_num: number;
   chapter_title: string;
-  topics_json: string;   // JSON array of topic title strings
+  topics: WeekTopic[];
   notes: string;
 };

@@ -32,11 +32,17 @@ export function CourseCard({ course, action }: { course: any, action?: React.Rea
         </div>
 
         <div className="p-6 flex-1 flex flex-col">
-          <Link to={`/courses/${course.id}`}>
-            <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1 group-hover:text-blue-600 transition-colors uppercase tracking-tight">
+          {course.user_role || course.professor_id === user?.id ? (
+            <Link to={`/courses/${course.id}`}>
+              <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1 group-hover:text-blue-600 transition-colors uppercase tracking-tight">
+                {course.title}
+              </h3>
+            </Link>
+          ) : (
+            <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1 uppercase tracking-tight">
               {course.title}
             </h3>
-          </Link>
+          )}
           
           {user?.role === 'student' && course.user_role && (
             <div className="mt-auto space-y-4 pt-4">
@@ -59,7 +65,7 @@ export function CourseCard({ course, action }: { course: any, action?: React.Rea
             </div>
           )}
 
-          {user?.role === 'professor' && (
+          {(course.user_role === 'owner' || course.professor_id === user?.id) && (
             <div className="mt-auto pt-4">
               <Link 
                 to={`/courses/${course.id}`}

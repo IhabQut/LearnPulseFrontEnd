@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ChevronRight, ChevronDown, PlayCircle, CheckCircle2, MessageSquare, Award, Lock, ClipboardList, Edit3, Save, Trash2, PlusCircle, Sparkles } from 'lucide-react';
+import { ChevronRight, ChevronDown, PlayCircle, CheckCircle2, MessageSquare, Award, Lock, ClipboardList, Pencil, Save, Trash2, PlusCircle, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useDiscussionStore } from '../store/discussionStore';
 import { useCourseStore } from '../store/courseStore';
@@ -187,7 +187,7 @@ export default function ChapterView() {
                 <span className="flex items-center"><Sparkles className="w-4 h-4 mr-2 text-indigo-500 animate-pulse" /> AI Learning Summary</span>
                 {user?.role === 'professor' && !isEditingSummary && (
                   <button onClick={() => setIsEditingSummary(true)} title="Edit Summary" className="p-1 hover:bg-white rounded transition-colors opacity-0 group-hover:opacity-100">
-                    <Edit3 className="w-3.5 h-3.5 text-blue-600" />
+                    <Pencil className="w-3.5 h-3.5 text-blue-600" />
                   </button>
                 )}
                   <button 
@@ -330,7 +330,7 @@ export default function ChapterView() {
                       <div className="relative group/edit">
                         {user?.role === 'professor' && (
                           <button onClick={() => startEditTopic(topic)} className="absolute -top-1 right-0 p-1.5 bg-white border border-gray-100 rounded-lg shadow-sm text-gray-400 hover:text-blue-600 opacity-0 group-hover/edit:opacity-100 transition-all">
-                            <Edit3 className="w-4 h-4" />
+                            <Pencil className="w-4 h-4" />
                           </button>
                         )}
                         <p className="text-gray-700 leading-relaxed font-medium mb-6 pt-4">
@@ -378,7 +378,7 @@ export default function ChapterView() {
                           onClick={() => handleOpenQuizManager('topic', topic.id)}
                           className="flex items-center bg-white border border-blue-200 text-blue-600 font-bold py-2.5 px-6 rounded-xl hover:bg-blue-50 shadow-sm transition-all"
                         >
-                          <Edit3 className="w-5 h-5 mr-2" />
+                          <Pencil className="w-5 h-5 mr-2" />
                           Manage Quiz
                         </button>
                       )}
@@ -449,7 +449,7 @@ export default function ChapterView() {
                 onClick={() => handleOpenQuizManager('chapter', chapter.id)}
                 className="px-6 py-3 rounded-xl font-bold text-sm bg-indigo-500 text-white hover:bg-indigo-400 transition-all flex items-center border border-indigo-400"
               >
-                <Edit3 className="w-4 h-4 mr-2" />
+                <Pencil className="w-4 h-4 mr-2" />
                 Manage Quiz
               </button>
               <button 
