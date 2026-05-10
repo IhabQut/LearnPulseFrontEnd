@@ -43,7 +43,7 @@ export default function Profile() {
   const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
   const [meetingNote, setMeetingNote] = useState('');
   const [meetingSlot, setMeetingSlot] = useState('');
-  const [meetingType] = useState<'Zoom' | 'In-person'>('Zoom');
+  const [meetingType, setMeetingType] = useState<'Zoom' | 'In-person'>('Zoom');
   const [meetingRequested, setMeetingRequested] = useState(false);
 
   const isOwnProfile = !userId || userId === currentUser?.id;
@@ -73,7 +73,20 @@ export default function Profile() {
         setEditZoomEnabled(data.professor.zoom_enabled !== false);
         setEditInPersonEnabled(data.professor.in_person_enabled !== false);
         try {
-          setEditOfficeHours(JSON.parse(data.professor.office_hours || '[]'));
+          const parsed = JSON.parse(data.professor.office_hours || '[]');
+          const formatted = parsed.map((p: any) => {
+            let start = p.start;
+            let end = p.end;
+            if (p.time && !start && !end) {
+              const parts = p.time.split('-');
+              if (parts.length === 2) {
+                start = parts[0].trim();
+                end = parts[1].trim();
+              }
+            }
+            return { day: p.day || 'Monday', start: start || '10:00', end: end || '12:00' };
+          });
+          setEditOfficeHours(formatted);
         } catch {
           setEditOfficeHours([]);
         }
@@ -348,7 +361,10 @@ export default function Profile() {
                   </div>
 
                   <button 
-                    onClick={() => setIsMeetingModalOpen(true)}
+                    onClick={() => {
+                      setMeetingType(profileUser.professor?.zoom_enabled !== false ? 'Zoom' : 'In-person');
+                      setIsMeetingModalOpen(true);
+                    }}
                     className="w-full bg-white text-blue-700 font-black py-4 rounded-2xl shadow-xl hover:scale-[1.02] transition active:scale-[0.98]"
                   >
                     Schedule Consultation
@@ -408,6 +424,17 @@ export default function Profile() {
                       ))}
                       <option value="Custom time">Custom time (describe in note)</option>
                     </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block mb-3">Meeting Format</label>
+                  <select 
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none"
+                    value={meetingType}
+                    onChange={e => setMeetingType(e.target.value as any)}
+                  >
+                    {profileUser.professor?.zoom_enabled !== false && <option value="Zoom">Zoom / Virtual</option>}
+                    {profileUser.professor?.in_person_enabled !== false && <option value="In-person">In-person</option>}
+                  </select>
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block mb-3">Meeting Note</label>

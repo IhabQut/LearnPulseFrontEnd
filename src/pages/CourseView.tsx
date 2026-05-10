@@ -57,6 +57,7 @@ export default function CourseView() {
   const debouncedUserSearch = useDebounce(userSearch, 300);
   const [enrollUserId, setEnrollUserId] = useState('');
   const [enrolling, setEnrolling] = useState(false);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
   const [unenrollConfirm, setUnenrollConfirm] = useState<string | null>(null);
   const [unenrolling, setUnenrolling] = useState(false);
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
@@ -158,7 +159,7 @@ export default function CourseView() {
     if (!course) return;
     setUnenrolling(true);
     try {
-      await apiFetch(`/api/courses/${course.id}/students/${userId}`, { method: 'DELETE' });
+      await apiFetch(`/api/enrollments/courses/${course.id}/students/${userId}`, { method: 'DELETE' });
       setUsers(prev => prev.filter(u => u.id !== userId));
     } catch (err) {
       console.error('Failed to unenroll user:', err);
@@ -187,18 +188,25 @@ export default function CourseView() {
   const handleEnrollUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!course || !enrollUserId.trim()) return;
+
+    // Safe-guard: prevent owner from enrolling themselves
+    if (enrollUserId.trim() === user?.id) {
+      setEnrollError('You cannot enroll yourself — you are already the course owner.');
+      return;
+    }
+
     setEnrolling(true);
+    setEnrollError(null);
     try {
-      await apiFetch(`/api/courses/${course.id}/enroll-student`, {
+      await apiFetch(`/api/enrollments/courses/${course.id}/enroll-student`, {
         method: 'POST',
-        body: JSON.stringify({ user_id: enrollUserId })
+        body: JSON.stringify({ user_id: enrollUserId.trim() })
       });
       setEnrollUserId('');
       const refreshed = await apiFetch<EnrolledUser[]>(`/api/courses/${course.id}/students`);
       setUsers(refreshed);
-    } catch (err) {
-      console.error(err);
-      alert('Failed to enroll user. Please check the user ID.');
+    } catch (err: any) {
+      setEnrollError(err.message || 'Failed to enroll user. Please check the user ID.');
     } finally {
       setEnrolling(false);
     }

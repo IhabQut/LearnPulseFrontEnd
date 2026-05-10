@@ -23,7 +23,11 @@ export default function StepSyllabus({ syllabus, setSyllabus, chapters, grading,
       if (user.professor?.office_hours) {
         try {
           const oh = JSON.parse(user.professor.office_hours);
-          ohString = oh.map((s: any) => `${s.day}: ${s.start}-${s.end}`).join(', ');
+          ohString = oh.map((s: any) => {
+            if (s.start && s.end) return `${s.day}: ${s.start}-${s.end}`;
+            if (s.time) return `${s.day}: ${s.time}`;
+            return `${s.day}: Not set`;
+          }).join(', ');
         } catch {
           ohString = user.professor.office_hours;
         }
@@ -77,7 +81,11 @@ export default function StepSyllabus({ syllabus, setSyllabus, chapters, grading,
       if (user?.professor?.office_hours) {
         try {
           const oh = JSON.parse(user.professor.office_hours);
-          office_hours = oh.map((s: any) => `${s.day}: ${s.start}-${s.end}`).join(', ');
+          office_hours = oh.map((s: any) => {
+            if (s.start && s.end) return `${s.day}: ${s.start}-${s.end}`;
+            if (s.time) return `${s.day}: ${s.time}`;
+            return `${s.day}: Not set`;
+          }).join(', ');
         } catch {
           office_hours = user.professor.office_hours;
         }
@@ -136,8 +144,41 @@ export default function StepSyllabus({ syllabus, setSyllabus, chapters, grading,
           <Book className="w-5 h-5 text-blue-600" /> General Information
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input label="Course Code" value={syllabus.course_code || ''} onChange={v => updateField('course_code', v)} placeholder="e.g. 0702324" />
-          <Input label="Semester" value={syllabus.semester || ''} onChange={v => updateField('semester', v)} placeholder="e.g. Second Semester 2025/2026" />
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Course Code</label>
+              <button 
+                type="button"
+                onClick={() => updateField('course_code', Math.floor(1000000 + Math.random() * 9000000).toString())}
+                className="text-[10px] font-bold text-blue-600 hover:text-blue-800"
+              >
+                Auto-generate
+              </button>
+            </div>
+            <input 
+              type="text" 
+              value={syllabus.course_code || ''} 
+              onChange={e => updateField('course_code', e.target.value)} 
+              placeholder="e.g. 0702324"
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Semester</label>
+            <select
+              value={syllabus.semester || ''}
+              onChange={e => updateField('semester', e.target.value)}
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
+            >
+              <option value="">Select Semester...</option>
+              <option value="First Semester 2024/2025">First Semester 2024/2025</option>
+              <option value="Second Semester 2024/2025">Second Semester 2024/2025</option>
+              <option value="Summer Semester 2024/2025">Summer Semester 2024/2025</option>
+              <option value="First Semester 2025/2026">First Semester 2025/2026</option>
+              <option value="Second Semester 2025/2026">Second Semester 2025/2026</option>
+              <option value="Summer Semester 2025/2026">Summer Semester 2025/2026</option>
+            </select>
+          </div>
           <Input label="Instructor Name" value={syllabus.instructor_name || ''} onChange={v => updateField('instructor_name', v)} />
           <Input label="Instructor Email" value={syllabus.instructor_email || ''} onChange={v => updateField('instructor_email', v)} />
           <Input label="Instructor Phone" value={syllabus.instructor_phone || ''} onChange={v => updateField('instructor_phone', v)} />

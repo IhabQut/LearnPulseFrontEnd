@@ -383,14 +383,6 @@ export default function ChapterView() {
                         </button>
                       )}
                       
-                      <Link 
-                        to={`/courses/${course.id}?tab=discussions`}
-                        className="flex items-center bg-gray-50 text-gray-700 border border-gray-200 font-bold py-2.5 px-6 rounded-xl hover:bg-gray-100 shadow-sm transition-all"
-                      >
-                        <MessageSquare className="w-5 h-5 mr-2 text-blue-500" />
-                        Discuss Topic
-                      </Link>
-                      
                       {!topic.completed && (
                         <div className="flex-1"></div>
                       )}
